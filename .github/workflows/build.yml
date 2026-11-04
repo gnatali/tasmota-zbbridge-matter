@@ -1,0 +1,51 @@
+name: Build firmware
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+env:
+  # Commit Tasmota de reference (branche development, 16.0.0.2)
+  TASMOTA_REF: a281cece518b0031e22f2317ca7dbc530c934da1
+  PIO_ENV: tasmota32-zbbrdgpro-matter
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v4
+        with:
+          repository: arendst/Tasmota
+          ref: ${{ env.TASMOTA_REF }}
+          path: tasmota
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: pio-${{ env.TASMOTA_REF }}
+
+      - run: pip install platformio
+
+      - run: cp platformio_override.ini tasmota/
+
+      - run: pio run -e ${{ env.PIO_ENV }}
+        working-directory: tasmota
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firmware
+          path: tasmota/build_output/firmware/${{ env.PIO_ENV }}*
+
+      - if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: tasmota/build_output/firmware/${{ env.PIO_ENV }}.bin

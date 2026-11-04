@@ -14,7 +14,7 @@ Matter, `tasmota32` a Matter sans Zigbee.
 | Composant `espressif/mdns` | retiré | conservé (Matter s'annonce en mDNS) |
 | Composant `espressif/fb_gfx` (caméra) | conservé | retiré |
 | Partitions | `app1856k_fs1344k` | `app2880k_fs320k` (safeboot) |
-| `OTA_URL` | firmware officiel | vide |
+| `OTA_URL` | firmware officiel | dernière release de ce dépôt |
 | Fichiers du CC2652 dans le FS | oui | non |
 
 L'image avec Matter fait environ 2 Mo (1984 Ko) : elle ne tient pas dans les 1856 Ko du build
@@ -26,8 +26,9 @@ import partition_core
 for s: partition_core.Partition().slots print(s.label, s.sz / 1024) end
 ```
 
-`OTA_URL` est vide pour qu'un clic sur « Start upgrade » ne remplace pas ce firmware par
-la version officielle sans Matter.
+`OTA_URL` pointe sur la dernière release de ce dépôt, pour qu'un clic sur « Start upgrade »
+ne remplace pas ce firmware par la version officielle sans Matter (voir
+[Mise à jour OTA](#mise-à-jour-ota-depuis-github)).
 
 ## Version de Tasmota
 
@@ -78,6 +79,80 @@ directory ») : le script place donc ce cache dans `C:\tasmota-build\idf-cache` 
 Sans PSRAM, Zigbee et Matter laissent peu de mémoire libre : surveiller `Heap` dans
 `Status 4`. En cas de redémarrages pendant l'appairage, reflasher le firmware précédent
 de la même façon.
+
+## Mise à jour OTA depuis GitHub
+
+Chaque tag `v*` publie dans les **Releases** :
+
+- `tasmota32-zbbrdgpro-matter.bin` : le firmware ;
+- `version.json` : `{"tag":"v16.0.0.2-matter2","build":12,...}`, où `build` est le numéro
+  d'exécution du workflow, également inscrit dans le nom d'image du firmware
+  (`Version` de `Status 2` : `16.0.0.2(zbbrdgpro-matter.12)`).
+
+GitHub sert toujours la dernière release (ni brouillon, ni pré-release) à une adresse fixe,
+que le module télécharge en HTTPS en suivant la redirection de GitHub :
+
+```
+https://github.com/gnatali/tasmota-zbbridge-matter/releases/latest/download/tasmota32-zbbrdgpro-matter.bin
+```
+
+Avec la disposition safeboot, `Upgrade 1` redémarre le module sur la partition `safeboot`,
+qui télécharge ce `.bin`, l'écrit dans `app0` puis redémarre sur le nouveau firmware.
+Les réglages (Zigbee, Matter, Wi-Fi) sont conservés.
+
+### Mise à jour manuelle en un clic
+
+Une fois, dans la console : `OtaUrl 1` (rétablit l'`OTA_URL` compilé ci-dessus ; un
+firmware antérieur à cette version n'en a pas : saisir alors l'adresse complète,
+`OtaUrl https://github.com/...`). Ensuite **Firmware Upgrade → Start upgrade**, ou
+`Upgrade 1` dans la console, installe la dernière release.
+
+### Mise à jour automatique
+
+Tasmota ne vérifie jamais seul s'il existe une nouvelle version : le script
+[`berry/github_ota.be`](berry/github_ota.be) s'en charge.
+
+1. **Outils → Gestion du système de fichiers** : envoyer `github_ota.be`.
+2. Dans le même écran, éditer (ou créer) `autoexec.be` et y ajouter :
+
+   ```berry
+   load("github_ota.be")
+   ```
+
+3. Redémarrer.
+
+Chaque nuit à 3 h 30 (heure locale du module, réglée par `Timezone`), le script lit
+`version.json` dans la dernière release et lance `Upgrade 1` si son `build` est supérieur
+à celui du firmware installé. Il n'installe jamais une version plus ancienne. Commandes :
+
+| Commande | Effet |
+|---|---|
+| `OtaCheck` | vérifie maintenant et installe si une version plus récente existe |
+| `OtaCheck 0` | vérifie seulement : `{"installed":12,"latest":15,"tag":"...","update":true}` |
+
+Un firmware sans numéro de build (compilé avec `build-zbbridge-matter.ps1`, ou antérieur
+à cette version) compte comme le build 0 : il est remplacé par la dernière release à la
+vérification suivante. Pour garder une compilation locale, retirer la ligne `load(...)`
+de `autoexec.be`. L'heure se change dans la variable `cron` du script.
+
+Publier une nouvelle version revient donc à pousser un tag ; les modules se mettent à
+jour la nuit suivante :
+
+```bash
+git tag v16.0.0.2-matter2
+git push --tags
+```
+
+Si une version pose problème, la retirer des Releases (ou la passer en pré-release)
+rend « latest » la précédente, mais les modules déjà mis à jour n'y reviennent pas
+d'eux-mêmes (pas de retour en arrière) : reflasher alors le `.bin` précédent par
+**Upgrade by file upload**.
+
+La vérification télécharge `version.json` en HTTPS, ce qui demande plusieurs dizaines de Ko de mémoire
+libre : avec Zigbee et Matter, elle peut échouer si `Heap` est trop bas
+(`OTA: version.json inaccessible` dans le journal) ; elle est retentée la nuit suivante.
+
+## Remarques
 
 Les commandes HTTP (`/cm?cmnd=...`) exigent un en-tête `Referer` tant que
 `SetOption128` est actif.

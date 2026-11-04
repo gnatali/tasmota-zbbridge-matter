@@ -35,17 +35,36 @@ jobs:
 
       - run: pip install platformio
 
-      - run: cp platformio_override.ini tasmota/
+      # Numero de build dans le nom d'image : "16.0.0.2(zbbrdgpro-matter.12)".
+      # Le script berry/github_ota.be le compare a version.json pour decider de la mise a jour
+      - name: Configure build number
+        run: |
+          cp platformio_override.ini tasmota/
+          sed -i 's/"zbbrdgpro-matter"/"zbbrdgpro-matter.${{ github.run_number }}"/' tasmota/platformio_override.ini
+          grep -q 'zbbrdgpro-matter.${{ github.run_number }}' tasmota/platformio_override.ini
 
       - run: pio run -e ${{ env.PIO_ENV }}
         working-directory: tasmota
 
+      - name: Write version.json
+        run: |
+          printf '{"tag":"%s","build":%s,"tasmota_ref":"%s"}\n' \
+            "${{ github.ref_name }}" "${{ github.run_number }}" "$TASMOTA_REF" \
+            > tasmota/build_output/firmware/version.json
+          cat tasmota/build_output/firmware/version.json
+
       - uses: actions/upload-artifact@v4
         with:
           name: firmware
-          path: tasmota/build_output/firmware/${{ env.PIO_ENV }}*
+          path: |
+            tasmota/build_output/firmware/${{ env.PIO_ENV }}*
+            tasmota/build_output/firmware/version.json
 
       - if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: tasmota/build_output/firmware/${{ env.PIO_ENV }}.bin
+          # "latest" : les URL releases/latest/download/... utilisees par l'OTA pointent ici
+          make_latest: true
+          files: |
+            tasmota/build_output/firmware/${{ env.PIO_ENV }}.bin
+            tasmota/build_output/firmware/version.json

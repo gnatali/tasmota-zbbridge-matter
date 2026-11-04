@@ -133,6 +133,50 @@ Backlog Template {"NAME":"Sonoff Zigbee Pro","GPIO":[0,0,576,0,480,0,0,0,0,1,1,5
 
 Au redémarrage, la ligne `ETH:` doit disparaître, et on doit voir `ZIG: Zigbee started`.
 
+### Toujours `timeout, goto label 99` sans la ligne `ETH:`
+
+Le CC2652P ne répond pas avec un firmware Zigbee compatible avec Tasmota (firmware absent ou
+d'origine Sonoff, ou puce restée en bootloader). Le build officiel embarque le firmware et
+les scripts de flash dans le système de fichiers. Ici ils ne tiennent pas dans les 320 Ko :
+le dossier [`zigbee/`](zigbee) fournit le même firmware dans un format compact (185 Ko au
+lieu de 495 Ko).
+
+1. **Consoles → Manage File System** : envoyer `zigbee/cc2652_flasher.be`,
+   `zigbee/zbpro_flash.be` et `zigbee/SonoffZBPro_coord_20240710.zbp`.
+2. **Consoles → Berry Scripting console**, diagnostic (n'écrit rien) :
+
+   ```berry
+   import zbpro_flash as zf
+   zf.check()
+   ```
+
+   - `FLH: bootloader CC2652P OK, chip id 0x...` : la liaison série et les broches sont bonnes.
+   - La ligne `CRC32` donne le firmware présent. S'il est connu (`SonoffZBPro_coord_...`),
+     le firmware est bon et le problème est ailleurs.
+   - Une erreur `timeout_error` ou `protocol_error` : le CC2652P ne répond même pas en
+     bootloader. Vérifier `Template` / `Gpio` (Rx=23, Tx=19, Rst-1=15, Rst-2=22).
+3. Si le firmware est inconnu, reprogrammer le CC2652P (environ 2 minutes, Tasmota ne
+   répond plus pendant ce temps) :
+
+   ```berry
+   zf.flash("SonoffZBPro_coord_20240710.zbp")
+   ```
+
+   Attendre `FLH: flash termine et verifie`. Une coupure en cours de route est sans
+   danger : le CC2652P reste en bootloader, il suffit de relancer `zf.flash(...)`.
+4. `Restart 1`, puis supprimer les trois fichiers du système de fichiers.
+
+`zbpro_flash.be` vérifie le fichier (adresses, CCFG avec le BSL sur DIO_8) avant d'effacer
+la puce, et compare le CRC32 de la flash à celui du fichier après l'écriture.
+`hex2zbp.py` convertit un autre `.hex` du dossier
+`tools/fw_SonoffZigbeeBridgePro_cc2652` de Tasmota :
+
+```bash
+python3 zigbee/hex2zbp.py SonoffZBPro_coord_20240710.hex SonoffZBPro_coord_20240710.zbp
+```
+
+`cc2652_flasher.be` vient de Tasmota (`tasmota/berry/zigbee`, commit `a281cec`).
+
 ## Remarques
 
 Les commandes HTTP (`/cm?cmnd=...`) exigent un en-tête `Referer` tant que

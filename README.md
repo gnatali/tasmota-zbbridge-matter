@@ -14,7 +14,7 @@ Matter, `tasmota32` a Matter sans Zigbee.
 | Composant `espressif/mdns` | retiré | conservé (Matter s'annonce en mDNS) |
 | Composant `espressif/fb_gfx` (caméra) | conservé | retiré |
 | Partitions | `app1856k_fs1344k` | `app2880k_fs320k` (safeboot) |
-| `OTA_URL` | firmware officiel | vide |
+| `OTA_URL` | firmware officiel | dernière release de ce dépôt |
 | Fichiers du CC2652 dans le FS | oui | non |
 
 L'image avec Matter fait environ 2 Mo (1984 Ko) : elle ne tient pas dans les 1856 Ko du build
@@ -26,8 +26,9 @@ import partition_core
 for s: partition_core.Partition().slots print(s.label, s.sz / 1024) end
 ```
 
-`OTA_URL` est vide pour qu'un clic sur « Start upgrade » ne remplace pas ce firmware par
-la version officielle sans Matter.
+`OTA_URL` pointe sur la dernière release de ce dépôt, pour qu'un clic sur « Start upgrade »
+ne remplace pas ce firmware par la version officielle sans Matter (voir
+[Mise à jour OTA](#mise-à-jour-ota-depuis-github)).
 
 ## Version de Tasmota
 
@@ -78,6 +79,26 @@ directory ») : le script place donc ce cache dans `C:\tasmota-build\idf-cache` 
 Sans PSRAM, Zigbee et Matter laissent peu de mémoire libre : surveiller `Heap` dans
 `Status 4`. En cas de redémarrages pendant l'appairage, reflasher le firmware précédent
 de la même façon.
+
+## Mise à jour OTA depuis GitHub
+
+GitHub sert toujours la dernière release (ni brouillon, ni pré-release) à une adresse fixe,
+que le module télécharge en HTTPS en suivant la redirection de GitHub :
+
+```
+https://github.com/gnatali/tasmota-zbbridge-matter/releases/latest/download/tasmota32-zbbrdgpro-matter.bin
+```
+
+Une fois, dans la console : `OtaUrl 1` (rétablit l'`OTA_URL` compilé ci-dessus ; un
+firmware antérieur à cette version n'en a pas : saisir alors l'adresse complète,
+`OtaUrl https://github.com/...`). Ensuite **Firmware Upgrade → Start upgrade**, ou
+`Upgrade 1` dans la console, installe la dernière release.
+
+Avec la disposition safeboot, `Upgrade 1` redémarre le module sur la partition `safeboot`,
+qui télécharge ce `.bin`, l'écrit dans `app0` puis redémarre sur le nouveau firmware.
+Les réglages (Zigbee, Matter, Wi-Fi) sont conservés.
+
+## Remarques
 
 Les commandes HTTP (`/cm?cmnd=...`) exigent un en-tête `Referer` tant que
 `SetOption128` est actif.

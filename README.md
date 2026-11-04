@@ -17,7 +17,7 @@ Matter, `tasmota32` a Matter sans Zigbee.
 | `OTA_URL` | firmware officiel | vide |
 | Fichiers du CC2652 dans le FS | oui | non |
 
-L'image avec Matter fait environ 1,85 Mo : elle ne tient pas dans les 1856 Ko du build
+L'image avec Matter fait environ 2 Mo (1984 Ko) : elle ne tient pas dans les 1856 Ko du build
 officiel. Elle suppose un module déjà en disposition safeboot (`safeboot` 832K, `app0`
 2880K, `spiffs` 320K), ce que l'on peut vérifier dans la console Berry :
 

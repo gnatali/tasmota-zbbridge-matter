@@ -98,6 +98,41 @@ Avec la disposition safeboot, `Upgrade 1` redémarre le module sur la partition 
 qui télécharge ce `.bin`, l'écrit dans `app0` puis redémarre sur le nouveau firmware.
 Les réglages (Zigbee, Matter, Wi-Fi) sont conservés.
 
+## Dépannage : Zigbee ne démarre pas
+
+Symptôme dans la console :
+
+```
+ETH: Ethernet using RMII
+ZIG: rebooting ZNP device
+ZIG: timeout, goto label 99
+RSL: RESULT = {"ZbState":{"Status":99,"Message":"Abort"}}
+```
+
+et `ZbInfo` répond `{"Command":"Unknown"}`.
+
+Le CC2652P ne répond pas parce que le pilote Ethernet a pris ses broches. Sur l'ESP32,
+l'Ethernet RMII utilise des broches fixes (GPIO19, 21, 22, 25, 26, 27). Or le TX Zigbee du
+ZBBridge Pro est sur GPIO19 et sa broche BSL sur GPIO22. Le module n'a pas de port
+Ethernet. Tasmota ne démarre l'Ethernet que si le modèle (*template*) déclare une broche
+`ETH MDC` ou `ETH MDIO` : la ligne `ETH: Ethernet using RMII` indique que le modèle
+actif n'est pas celui du ZBBridge Pro.
+
+Correction, dans la console :
+
+```
+Ethernet 0
+```
+
+(le module redémarre). Mieux, rétablir aussi le modèle officiel du ZBBridge Pro
+(celui de `Sonoff_ZBPro.autoconf`) :
+
+```
+Backlog Template {"NAME":"Sonoff Zigbee Pro","GPIO":[0,0,576,0,480,0,0,0,0,1,1,5792,0,0,0,3552,0,320,5793,3584,0,640,608,32,0,0,0,0,0,1,0,0,0,0,0,0],"FLAG":0,"BASE":1}; Module 0
+```
+
+Au redémarrage, la ligne `ETH:` doit disparaître, et on doit voir `ZIG: Zigbee started`.
+
 ## Remarques
 
 Les commandes HTTP (`/cm?cmnd=...`) exigent un en-tête `Referer` tant que

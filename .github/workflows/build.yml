@@ -50,4 +50,8 @@ jobs:
       - if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: tasmota/build_output/firmware/${{ env.PIO_ENV }}.bin
+          # .bin : mise a jour (fichier ou OTA) ; .factory.bin : premiere installation par
+          # le port serie, a l'adresse 0x0
+          files: |
+            tasmota/build_output/firmware/${{ env.PIO_ENV }}.bin
+            tasmota/build_output/firmware/${{ env.PIO_ENV }}.factory.bin

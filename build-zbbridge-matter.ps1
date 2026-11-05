@@ -9,7 +9,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$pioEnv = "tasmota32-zbbrdgpro-matter"
+$pioEnv = "tasmota32-zbgw03-matter"
 $repo = Join-Path $WorkDir "Tasmota"
 $venv = Join-Path $WorkDir "venv"
 

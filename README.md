@@ -46,8 +46,6 @@ une version plus récente, modifier `TASMOTA_REF` dans `.github/workflows/build.
 
 ## Compilation
 
-### Sur GitHub
-
 - Onglet **Actions** → **Build firmware** → **Run workflow** : le `.bin` est disponible
   dans les artefacts de l'exécution.
 - Pousser un tag `v*` publie le `.bin` dans les **Releases** :
@@ -56,24 +54,6 @@ une version plus récente, modifier `TASMOTA_REF` dans `.github/workflows/build.
   git tag v16.0.0.2-matter1
   git push --tags
   ```
-
-### Sous Windows
-
-Prérequis : Git et Python 3.
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\build-zbbridge-matter.ps1
-```
-
-Le script clone Tasmota (`development`) dans `C:\tasmota-build`, installe PlatformIO
-dans un environnement Python dédié et compile. Le premier build est long (20 à 40 min) :
-`custom_sdkconfig` impose la recompilation des bibliothèques Arduino.
-
-Avec le Python du Microsoft Store, Windows redirige les écritures dans AppData vers le
-dossier privé de l'application. Le cache du gestionnaire de composants ESP-IDF y devient
-invisible pour git (`git init --bare` échoue avec « unable to get current working
-directory ») : le script place donc ce cache dans `C:\tasmota-build\idf-cache` via
-`IDF_COMPONENT_CACHE_PATH`.
 
 ## Installation
 

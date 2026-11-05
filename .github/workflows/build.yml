@@ -39,6 +39,14 @@ jobs:
           cp platformio_override.ini tasmota/
           cp user_config_override.h tasmota/tasmota/
 
+      # Correctifs appliques au code de Tasmota (patches/*.patch). Le code Berry de Matter
+      # est regenere a partir des sources .be pendant la compilation : un correctif d'un
+      # fichier .be est donc bien pris en compte.
+      - run: |
+          for p in patches/*.patch; do
+            git -C tasmota apply --verbose "../$p"
+          done
+
       - run: pio run -e ${{ env.PIO_ENV }}
         working-directory: tasmota
 

@@ -93,7 +93,7 @@ GitHub sert toujours la dernière release (ni brouillon, ni pré-release) à une
 que le module télécharge en HTTPS en suivant la redirection de GitHub :
 
 ```
-https://github.com/gnatali/tasmota-zbbridge-matter/releases/latest/download/tasmota32-zbgw03-matter.bin
+https://github.com/gnatali/tasmota32-zbgw03-matter/releases/latest/download/tasmota32-zbgw03-matter.bin
 ```
 
 Un module qui a encore un firmware nommé `zbbrdgpro-matter` (versions `v16.0.0.2-matter1`

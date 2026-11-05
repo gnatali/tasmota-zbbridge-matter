@@ -85,6 +85,11 @@ fonction retirée rend un peu de mémoire à Zigbee et Matter.
 | Mise à jour OTA (vers la version lite) | InfluxDB, pont TCP (ZHA ou Zigbee2MQTT par TCP), I2C et ses capteurs, SPI |
 | | Pilotes de matériel absent du ZB-GW03 : rubans de LED et puces d'éclairage, Sonoff RF/SC, Tuya MCU, variateurs PWM, compteurs, DS18x20, DHT, ADC, pont série, visualiseur de GPIO |
 
+Mesuré sur Tasmota 16.0.0.2 : l'image lite fait environ 1780 Ko au lieu d'environ 1990 Ko,
+et sa RAM statique est inférieure d'environ 4 Ko (60,4 Ko au lieu de 64,4 Ko). S'y ajoute la
+mémoire que les fonctions retirées réservent pendant le fonctionnement (Ethernet, écoute UDP
+de Hue/WeMo...) : la vérifier avec `Heap` dans `Status 4`.
+
 Mêmes partitions que le firmware complet : on passe de l'un à l'autre par une simple mise à
 jour (envoi de fichier ou OTA), les réglages sont conservés. Les appareils Zigbee sont
 enregistrés dans le système de fichiers, pas dans l'EEPROM I2C : retirer l'I2C ne les perd

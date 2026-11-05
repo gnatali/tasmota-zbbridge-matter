@@ -84,6 +84,11 @@ gives back a little memory to Zigbee and Matter.
 | OTA updates (to the lite version) | InfluxDB, TCP bridge (ZHA or Zigbee2MQTT over TCP), I2C and its sensors, SPI |
 | | Drivers for hardware the ZB-GW03 does not have: LED strips and light chips, Sonoff RF/SC, Tuya MCU, PWM dimmers, counters, DS18x20, DHT, ADC, serial bridge, GPIO viewer |
 
+Measured on Tasmota 16.0.0.2: the lite image is about 1780 KB instead of about 1990 KB,
+and its static RAM is about 4 KB lower (60.4 KB instead of 64.4 KB). On top of that comes
+the memory the removed features would allocate at run time (Ethernet, Hue/WeMo UDP
+listeners...); check it with `Heap` in `Status 4`.
+
 Same partitions as the full firmware: switching between the two is a simple update (file
 upload or OTA), settings are kept. Zigbee devices are stored in the file system, not in the
 I2C EEPROM: removing I2C does not lose them.

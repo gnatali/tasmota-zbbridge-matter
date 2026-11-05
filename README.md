@@ -52,6 +52,7 @@ This build starts from the official `tasmota32-zbbrdgpro` environment and change
 | Partitions | `app1856k_fs1344k` | `app2880k_fs320k` (safeboot) |
 | `OTA_URL` | official firmware | latest release of this repository |
 | CC2652P firmware and flasher in the file system | yes | no (useless on the EFR32) |
+| Matter event timestamps (button presses) | seconds, 32 bits | milliseconds, 64 bits, as Matter requires (see [Zigbee button in Google Home](#zigbee-button-in-google-home)) |
 
 With Matter, the image is about 2 MB (about 1990 KB). It does not fit in the 1856 KB slot of
 the official layout, hence the **safeboot** layout: `safeboot` 832 KB, `app0` 2880 KB,
@@ -174,6 +175,35 @@ ESPHome configuration for v1.4 uses the clock output on GPIO17 and PHY address 1
 Without PSRAM, Zigbee and Matter leave about 70 to 100 KB of free heap: watch `Heap` in
 `Status 4`.
 
+### Zigbee button in Google Home
+
+Tasmota does not expose a Zigbee button to Matter, but it can create a **virtual Matter
+button** that a rule triggers on each press. Tested with a Sonoff SNZB-01P and Google Home.
+
+1. Press the button and watch the console: the `ZbReceived` line gives its short address
+   (`0x922D` below) and the value of each press type. For the SNZB-01P: `Power` 2 for a
+   single press, 1 for a double press, 0 for a long press.
+2. **Configuration → Matter**: add a **v.Generic Switch/Button** device, named for example
+   `Perron`.
+3. Link the Zigbee button to the virtual button:
+
+   ```
+   Rule1 on ZbReceived#0x922D#Power=2 do MtrUpdate {"Name":"Perron","Presses":1} endon on ZbReceived#0x922D#Power=1 do MtrUpdate {"Name":"Perron","Presses":2} endon on ZbReceived#0x922D#Power=0 do MtrUpdate {"Name":"Perron","Presses":3} endon
+   Rule1 1
+   ```
+
+   The virtual button only knows repeated presses (1 to 5): the long press arrives as a
+   triple press.
+4. `Restart 1`, so that the Matter controller subscribes to the new button.
+5. In Google Home: **Automations → Add → Household**, starter **"Switch or button
+   pressed"**, then the button and the press type.
+
+Tasmota timestamps each Matter event in seconds, while Matter expects milliseconds: a press
+seems to date from January 1970, and Google Home receives it without starting the
+automation. This repository fixes it (`patches/matter-event-timestamp-ms.patch`), from
+release `v16.0.0.2-matter4`. With `WebLog 3`, a press shows `MTR: +Add_Event` (button
+events) then `MTR: <Sub_Data` (sent to the controller).
+
 ## OTA updates
 
 GitHub always serves the latest release (not a draft, not a pre-release) at a fixed address,
@@ -220,11 +250,15 @@ workflow.
 |---|---|
 | `platformio_override.ini` | `tasmota32-zbgw03-matter` environment: extends `tasmota32-zbbrdgpro`, adds Matter, sets partitions, `OTA_URL` and components |
 | `user_config_override.h` | Replaces ZNP with EZSP (copied to `tasmota/` before the build) |
-| `.github/workflows/build.yml` | Clones Tasmota, copies both files, builds, publishes |
+| `patches/*.patch` | Fixes applied to the Tasmota code before the build; the Matter Berry code is regenerated from its sources during the build |
+| `.github/workflows/build.yml` | Clones Tasmota, copies both files, applies the fixes, builds, publishes |
 
 To build locally, clone Tasmota at the same commit, copy `platformio_override.ini` to its
-root and `user_config_override.h` to its `tasmota/` folder, then run
-`pio run -e tasmota32-zbgw03-matter`.
+root and `user_config_override.h` to its `tasmota/` folder, apply the fixes
+(`git -C tasmota apply ../patches/*.patch`), then run `pio run -e tasmota32-zbgw03-matter`.
+
+When changing `TASMOTA_REF`, check that each fix still applies: otherwise the workflow
+stops. A fix that became useless (fixed in Tasmota) can be deleted.
 
 ## Troubleshooting
 

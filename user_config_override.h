@@ -1,5 +1,4 @@
-// Copie dans tasmota/user_config_override.h avant la compilation
-// (workflow GitHub et build-zbbridge-matter.ps1).
+// Copie dans tasmota/user_config_override.h avant la compilation par le workflow GitHub.
 
 #ifndef _USER_CONFIG_OVERRIDE_H_
 #define _USER_CONFIG_OVERRIDE_H_

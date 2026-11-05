@@ -52,6 +52,7 @@ Ce build part de l'environnement officiel `tasmota32-zbbrdgpro` et modifie :
 | Partitions | `app1856k_fs1344k` | `app2880k_fs320k` (safeboot) |
 | `OTA_URL` | firmware officiel | dernière release de ce dépôt |
 | Firmware et flasheur du CC2652P dans le système de fichiers | oui | non (inutiles sur l'EFR32) |
+| Date des événements Matter (appuis de bouton) | secondes sur 32 bits | millisecondes sur 64 bits, comme le veut Matter (voir [Bouton Zigbee dans Google Home](#bouton-zigbee-dans-google-home)) |
 
 Avec Matter, l'image fait environ 2 Mo (environ 1990 Ko). Elle ne tient pas dans les 1856 Ko
 de la disposition officielle, d'où la disposition **safeboot** : `safeboot` 832 Ko, `app0`
@@ -177,6 +178,35 @@ l'adresse PHY 1, soit `Backlog EthType 0; EthAddress 1; EthClockMode 3`.
 Sans PSRAM, Zigbee et Matter laissent environ 70 à 100 Ko de mémoire libre : surveiller
 `Heap` dans `Status 4`.
 
+### Bouton Zigbee dans Google Home
+
+Tasmota ne présente pas un bouton Zigbee à Matter, mais il peut créer un **bouton virtuel**
+Matter qu'une règle déclenche à chaque appui. Testé avec un Sonoff SNZB-01P et Google Home.
+
+1. Dans la console, appuyer sur le bouton : la ligne `ZbReceived` donne son adresse courte
+   (`0x922D` ci-dessous) et la valeur de chaque type d'appui. Pour le SNZB-01P : `Power` 2
+   pour un appui simple, 1 pour un double appui, 0 pour un appui long.
+2. **Configuration → Matter** : ajouter un appareil de type **v.Generic Switch/Button**,
+   nommé par exemple `Perron`.
+3. Relier le bouton Zigbee au bouton virtuel :
+
+   ```
+   Rule1 on ZbReceived#0x922D#Power=2 do MtrUpdate {"Name":"Perron","Presses":1} endon on ZbReceived#0x922D#Power=1 do MtrUpdate {"Name":"Perron","Presses":2} endon on ZbReceived#0x922D#Power=0 do MtrUpdate {"Name":"Perron","Presses":3} endon
+   Rule1 1
+   ```
+
+   Le bouton virtuel ne connaît que les appuis répétés (1 à 5) : l'appui long arrive comme un
+   triple appui.
+4. `Restart 1`, pour que le contrôleur Matter s'abonne au nouveau bouton.
+5. Dans Google Home : **Automatisations → Ajouter → Pour la maison**, déclencheur
+   **« Interrupteur ou bouton pressé »**, puis le bouton et le type d'appui.
+
+Tasmota date chaque événement Matter en secondes, alors que Matter attend des millisecondes :
+un appui semble dater de janvier 1970, et Google Home le reçoit sans lancer l'automatisation.
+Ce dépôt corrige ce point (`patches/matter-event-timestamp-ms.patch`), à partir de la release
+`v16.0.0.2-matter4`. Avec `WebLog 3`, un appui affiche `MTR: +Add_Event` (événements du
+bouton) puis `MTR: <Sub_Data` (envoi au contrôleur).
+
 ## Mise à jour OTA
 
 GitHub sert toujours la dernière release (ni brouillon, ni pré-release) à une adresse fixe,
@@ -223,11 +253,15 @@ le workflow.
 |---|---|
 | `platformio_override.ini` | Environnement `tasmota32-zbgw03-matter` : étend `tasmota32-zbbrdgpro`, ajoute Matter, fixe les partitions, l'`OTA_URL` et les composants |
 | `user_config_override.h` | Remplace ZNP par EZSP (copié dans `tasmota/` avant la compilation) |
-| `.github/workflows/build.yml` | Clone Tasmota, copie les deux fichiers, compile, publie |
+| `patches/*.patch` | Correctifs appliqués au code de Tasmota avant la compilation ; le code Berry de Matter est régénéré à partir des sources pendant la compilation |
+| `.github/workflows/build.yml` | Clone Tasmota, copie les deux fichiers, applique les correctifs, compile, publie |
 
 Pour compiler en local : cloner Tasmota au même commit, copier `platformio_override.ini` à sa
-racine et `user_config_override.h` dans son dossier `tasmota/`, puis lancer
-`pio run -e tasmota32-zbgw03-matter`.
+racine et `user_config_override.h` dans son dossier `tasmota/`, appliquer les correctifs
+(`git -C tasmota apply ../patches/*.patch`), puis lancer `pio run -e tasmota32-zbgw03-matter`.
+
+En changeant `TASMOTA_REF`, vérifier que chaque correctif s'applique encore : le workflow
+s'arrête sinon. Un correctif devenu inutile (corrigé dans Tasmota) se supprime.
 
 ## Dépannage
 

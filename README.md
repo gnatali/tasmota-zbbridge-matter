@@ -1,21 +1,29 @@
-# Tasmota ZBBridge Pro : Zigbee + Matter
+# Tasmota ZB-GW03 : Zigbee + Matter
 
-Firmware Tasmota pour le **Sonoff ZBBridge Pro** (ESP32-D0WD-V3, 4 Mo de flash, sans PSRAM)
-qui ajoute **Matter** au build Zigbee officiel `tasmota32-zbbrdgpro`.
+Firmware Tasmota pour la passerelle **eWeLink ZB-GW03** (ESP32-D0WD-V3, 4 Mo de flash, sans
+PSRAM, Ethernet LAN8720, module Zigbee **EFR32MG21** de Silicon Labs) qui ajoute **Matter**
+au build Zigbee `tasmota32-zbbrdgpro`.
 
 Aucun firmware Tasmota officiel ne combine les deux : `tasmota32-zbbrdgpro` a Zigbee sans
 Matter, `tasmota32` a Matter sans Zigbee.
+
+Le ZB-GW03 n'est **pas** un Sonoff ZBBridge Pro : celui-ci a un CC2652P (Texas Instruments,
+protocole ZNP), le ZB-GW03 un EFR32MG21 (protocole EZSP), câblé sur d'autres broches. Ce
+dépôt part du build ZBBridge Pro et passe Zigbee en EZSP (`user_config_override.h`). Les
+noms de l'environnement et du `.bin` (`tasmota32-zbbrdgpro-matter`) sont conservés pour
+ne pas casser l'adresse de mise à jour OTA.
 
 ## Différences avec le build officiel `tasmota32-zbbrdgpro`
 
 | Réglage | Officiel | Ce dépôt |
 |---|---|---|
+| Protocole Zigbee | ZNP (CC2652P) | EZSP (EFR32MG21) |
 | Matter (`USE_MATTER_DEVICE`) | non | oui |
 | Composant `espressif/mdns` | retiré | conservé (Matter s'annonce en mDNS) |
 | Composant `espressif/fb_gfx` (caméra) | conservé | retiré |
 | Partitions | `app1856k_fs1344k` | `app2880k_fs320k` (safeboot) |
 | `OTA_URL` | firmware officiel | dernière release de ce dépôt |
-| Fichiers du CC2652 dans le FS | oui | non |
+| Firmware et flasheur du CC2652P dans le FS | oui | non (inutiles sur l'EFR32) |
 
 L'image avec Matter fait environ 2 Mo (1984 Ko) : elle ne tient pas dans les 1856 Ko du build
 officiel. Elle suppose un module déjà en disposition safeboot (`safeboot` 832K, `app0`
@@ -98,84 +106,20 @@ Avec la disposition safeboot, `Upgrade 1` redémarre le module sur la partition 
 qui télécharge ce `.bin`, l'écrit dans `app0` puis redémarre sur le nouveau firmware.
 Les réglages (Zigbee, Matter, Wi-Fi) sont conservés.
 
-## Dépannage : Zigbee ne démarre pas
+## Modèle de broches et Ethernet
 
-Symptôme dans la console :
+Le modèle (*template*) doit être celui du ZB-GW03, qui déclare l'Ethernet (LAN8720) et les
+broches du module Zigbee : il dépend de la révision de la carte (gravée sur le circuit),
+voir [templates.blakadder.com](https://templates.blakadder.com/) (ZB-GW03). **Ne pas**
+appliquer le modèle du Sonoff ZBBridge Pro (`Sonoff_ZBPro.autoconf`) : ses broches ne
+correspondent pas, et Zigbee ne démarre plus (`ZIG: timeout, goto label 99`).
 
-```
-ETH: Ethernet using RMII
-ZIG: rebooting ZNP device
-ZIG: timeout, goto label 99
-RSL: RESULT = {"ZbState":{"Status":99,"Message":"Abort"}}
-```
+Avec le bon modèle, `ETH: Ethernet using RMII` au démarrage est normal. `Ethernet 1` /
+`Ethernet 0` active ou coupe le port Ethernet (le module redémarre).
 
-et `ZbInfo` répond `{"Command":"Unknown"}`.
-
-Le CC2652P ne répond pas parce que le pilote Ethernet a pris ses broches. Sur l'ESP32,
-l'Ethernet RMII utilise des broches fixes (GPIO19, 21, 22, 25, 26, 27). Or le TX Zigbee du
-ZBBridge Pro est sur GPIO19 et sa broche BSL sur GPIO22. Le module n'a pas de port
-Ethernet. Tasmota ne démarre l'Ethernet que si le modèle (*template*) déclare une broche
-`ETH MDC` ou `ETH MDIO` : la ligne `ETH: Ethernet using RMII` indique que le modèle
-actif n'est pas celui du ZBBridge Pro.
-
-Correction, dans la console :
-
-```
-Ethernet 0
-```
-
-(le module redémarre). Mieux, rétablir aussi le modèle officiel du ZBBridge Pro
-(celui de `Sonoff_ZBPro.autoconf`) :
-
-```
-Backlog Template {"NAME":"Sonoff Zigbee Pro","GPIO":[0,0,576,0,480,0,0,0,0,1,1,5792,0,0,0,3552,0,320,5793,3584,0,640,608,32,0,0,0,0,0,1,0,0,0,0,0,0],"FLAG":0,"BASE":1}; Module 0
-```
-
-Au redémarrage, la ligne `ETH:` doit disparaître, et on doit voir `ZIG: Zigbee started`.
-
-### Toujours `timeout, goto label 99` sans la ligne `ETH:`
-
-Le CC2652P ne répond pas avec un firmware Zigbee compatible avec Tasmota (firmware absent ou
-d'origine Sonoff, ou puce restée en bootloader). Le build officiel embarque le firmware et
-les scripts de flash dans le système de fichiers. Ici ils ne tiennent pas dans les 320 Ko :
-le dossier [`zigbee/`](zigbee) fournit le même firmware dans un format compact (185 Ko au
-lieu de 495 Ko).
-
-1. **Consoles → Manage File System** : envoyer `zigbee/cc2652_flasher.be`,
-   `zigbee/zbpro_flash.be` et `zigbee/SonoffZBPro_coord_20240710.zbp`.
-2. **Consoles → Berry Scripting console**, diagnostic (n'écrit rien) :
-
-   ```berry
-   import zbpro_flash as zf
-   zf.check()
-   ```
-
-   - `FLH: bootloader CC2652P OK, chip id 0x...` : la liaison série et les broches sont bonnes.
-   - La ligne `CRC32` donne le firmware présent. S'il est connu (`SonoffZBPro_coord_...`),
-     le firmware est bon et le problème est ailleurs.
-   - Une erreur `timeout_error` ou `protocol_error` : le CC2652P ne répond même pas en
-     bootloader. Vérifier `Template` / `Gpio` (Rx=23, Tx=19, Rst-1=15, Rst-2=22).
-3. Si le firmware est inconnu, reprogrammer le CC2652P (environ 2 minutes, Tasmota ne
-   répond plus pendant ce temps) :
-
-   ```berry
-   zf.flash("SonoffZBPro_coord_20240710.zbp")
-   ```
-
-   Attendre `FLH: flash termine et verifie`. Une coupure en cours de route est sans
-   danger : le CC2652P reste en bootloader, il suffit de relancer `zf.flash(...)`.
-4. `Restart 1`, puis supprimer les trois fichiers du système de fichiers.
-
-`zbpro_flash.be` vérifie le fichier (adresses, CCFG avec le BSL sur DIO_8) avant d'effacer
-la puce, et compare le CRC32 de la flash à celui du fichier après l'écriture.
-`hex2zbp.py` convertit un autre `.hex` du dossier
-`tools/fw_SonoffZigbeeBridgePro_cc2652` de Tasmota :
-
-```bash
-python3 zigbee/hex2zbp.py SonoffZBPro_coord_20240710.hex SonoffZBPro_coord_20240710.zbp
-```
-
-`cc2652_flasher.be` vient de Tasmota (`tasmota/berry/zigbee`, commit `a281cec`).
+Au démarrage, Zigbee doit afficher `ZbState` avec `"Status":55` (version EZSP) puis
+`ZIG: Zigbee started`. `ZIG: rebooting ZNP device` indique un firmware compilé en ZNP :
+il ne peut pas parler à l'EFR32MG21.
 
 ## Remarques
 

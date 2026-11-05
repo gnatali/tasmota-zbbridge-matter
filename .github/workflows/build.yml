@@ -35,7 +35,9 @@ jobs:
 
       - run: pip install platformio
 
-      - run: cp platformio_override.ini tasmota/
+      - run: |
+          cp platformio_override.ini tasmota/
+          cp user_config_override.h tasmota/tasmota/
 
       - run: pio run -e ${{ env.PIO_ENV }}
         working-directory: tasmota

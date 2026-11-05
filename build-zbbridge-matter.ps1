@@ -1,4 +1,4 @@
-# Compile Tasmota Zigbee + Matter pour le Sonoff ZBBridge Pro.
+# Compile Tasmota Zigbee (EZSP) + Matter pour la passerelle eWeLink ZB-GW03.
 # Prerequis : Git et Python 3 dans le PATH.
 # Usage : powershell -ExecutionPolicy Bypass -File .\build-zbbridge-matter.ps1 [-WorkDir C:\tasmota-build]
 
@@ -9,7 +9,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$pioEnv = "tasmota32-zbbrdgpro-matter"
+$pioEnv = "tasmota32-zbgw03-matter"
 $repo = Join-Path $WorkDir "Tasmota"
 $venv = Join-Path $WorkDir "venv"
 
@@ -28,6 +28,8 @@ if (-not (Test-Path $repo)) {
 if ($LASTEXITCODE -ne 0) { throw "git a echoue" }
 
 Copy-Item (Join-Path $PSScriptRoot "platformio_override.ini") (Join-Path $repo "platformio_override.ini") -Force
+# Zigbee en EZSP (EFR32MG21 du ZB-GW03) au lieu de ZNP
+Copy-Item (Join-Path $PSScriptRoot "user_config_override.h") (Join-Path $repo "tasmota\user_config_override.h") -Force
 
 if (-not (Test-Path $venv)) {
     python -m venv $venv

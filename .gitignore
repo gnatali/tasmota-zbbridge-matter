@@ -1,3 +1,4 @@
 *.bin
 *.log
 .pio/
+__pycache__/

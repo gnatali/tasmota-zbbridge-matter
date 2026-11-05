@@ -8,7 +8,7 @@ on:
 env:
   # Commit Tasmota de reference (branche development, 16.0.0.2)
   TASMOTA_REF: a281cece518b0031e22f2317ca7dbc530c934da1
-  PIO_ENV: tasmota32-zbbrdgpro-matter
+  PIO_ENV: tasmota32-zbgw03-matter
 
 jobs:
   build:
@@ -35,7 +35,9 @@ jobs:
 
       - run: pip install platformio
 
-      - run: cp platformio_override.ini tasmota/
+      - run: |
+          cp platformio_override.ini tasmota/
+          cp user_config_override.h tasmota/tasmota/
 
       - run: pio run -e ${{ env.PIO_ENV }}
         working-directory: tasmota

@@ -242,3 +242,5 @@ root and `user_config_override.h` to its `tasmota/` folder, then run
   under the GNU GPL v3.0: the firmware binaries of this repository are built from it, with
   the configuration files above.
 - ZB-GW03 template: [templates.blakadder.com](https://templates.blakadder.com/).
+
+This repository is released under the GNU GPL v3.0, like Tasmota: see [LICENSE](LICENSE).

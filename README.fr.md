@@ -245,3 +245,5 @@ racine et `user_config_override.h` dans son dossier `tasmota/`, puis lancer
   sous licence GNU GPL v3.0 : les firmwares de ce dépôt sont compilés à partir de ses sources,
   avec les fichiers de configuration ci-dessus.
 - Modèle du ZB-GW03 : [templates.blakadder.com](https://templates.blakadder.com/).
+
+Ce dépôt est publié sous licence GNU GPL v3.0, comme Tasmota : voir [LICENSE](LICENSE).

@@ -8,7 +8,9 @@ on:
 env:
   # Commit Tasmota de reference (branche development, 16.0.0.2)
   TASMOTA_REF: a281cece518b0031e22f2317ca7dbc530c934da1
+  # Firmware complet et version lite (meme prefixe : le motif PIO_ENV* couvre les deux)
   PIO_ENV: tasmota32-zbgw03-matter
+  PIO_ENV_LITE: tasmota32-zbgw03-matter-lite
 
 jobs:
   build:
@@ -47,7 +49,7 @@ jobs:
             git -C tasmota apply --verbose "../$p"
           done
 
-      - run: pio run -e ${{ env.PIO_ENV }}
+      - run: pio run -e ${{ env.PIO_ENV }} -e ${{ env.PIO_ENV_LITE }}
         working-directory: tasmota
 
       - uses: actions/upload-artifact@v4
@@ -63,3 +65,5 @@ jobs:
           files: |
             tasmota/build_output/firmware/${{ env.PIO_ENV }}.bin
             tasmota/build_output/firmware/${{ env.PIO_ENV }}.factory.bin
+            tasmota/build_output/firmware/${{ env.PIO_ENV_LITE }}.bin
+            tasmota/build_output/firmware/${{ env.PIO_ENV_LITE }}.factory.bin

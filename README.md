@@ -9,10 +9,15 @@ Google Home, Apple Home, Home Assistant or any other Matter controller.
 No official Tasmota firmware has both: `tasmota32-zbbrdgpro` has Zigbee without Matter,
 `tasmota32` has Matter without Zigbee.
 
+Two variants are provided: the **full** firmware (`tasmota32-zbgw03-matter`) and a
+**lite** one (`tasmota32-zbgw03-matter-lite`), stripped down to Zigbee, Matter and direct
+actions between devices, to leave more free memory. See [Lite version](#lite-version).
+
 ## Contents
 
 - [Hardware](#hardware)
 - [Differences from the official build](#differences-from-the-official-build)
+- [Lite version](#lite-version)
 - [Download](#download)
 - [First install over serial](#first-install-over-serial)
 - [Update from an existing Tasmota](#update-from-an-existing-tasmota)
@@ -63,6 +68,32 @@ import partition_core
 for s: partition_core.Partition().slots print(s.label, s.sz / 1024) end
 ```
 
+## Lite version
+
+`tasmota32-zbgw03-matter-lite` is meant for a gateway that only does **Zigbee**, **Matter**
+and **direct actions between devices**, over **Wi-Fi**. Without PSRAM, every feature removed
+gives back a little memory to Zigbee and Matter.
+
+| Kept | Removed |
+|---|---|
+| Zigbee (EZSP), including `ZbBind` | Ethernet (Wi-Fi only) |
+| Matter (mDNS, IPv6) | Hue and WeMo emulation (Alexa) |
+| Rules (`Rule1 on ZbReceived#... do ...`) | Timers and sunrise/sunset |
+| Device Groups (`DevGroupSend`) | MQTT extensions: rule triggers on MQTT topics, Tasmota discovery (the MQTT client itself is part of Tasmota's core) |
+| Web interface, Berry, HTTPS client | Autoconf and extension manager |
+| OTA updates (to the lite version) | InfluxDB, TCP bridge (ZHA or Zigbee2MQTT over TCP), I2C and its sensors, SPI |
+| | Drivers for hardware the ZB-GW03 does not have: LED strips and light chips, Sonoff RF/SC, Tuya MCU, PWM dimmers, counters, DS18x20, DHT, ADC, serial bridge, GPIO viewer |
+
+Same partitions as the full firmware: switching between the two is a simple update (file
+upload or OTA), settings are kept. Zigbee devices are stored in the file system, not in the
+I2C EEPROM: removing I2C does not lose them.
+
+The full firmware remains the build to use for Ethernet, timers, Home Assistant over MQTT
+or Alexa.
+
+With MQTT unused, also run `SetOption3 0` (disables MQTT): the module stops trying to
+connect to a broker.
+
 ## Download
 
 The [latest release](https://github.com/gnatali/tasmota32-zbgw03-matter/releases/latest)
@@ -70,12 +101,17 @@ provides:
 
 | File | Use |
 |---|---|
-| `tasmota32-zbgw03-matter.factory.bin` | First install over serial, written at address `0x0` (bootloader, partition table, safeboot and firmware) |
-| `tasmota32-zbgw03-matter.bin` | Update of a module already running Tasmota with the safeboot layout (file upload or OTA) |
+| `tasmota32-zbgw03-matter.factory.bin` | Full firmware: first install over serial, written at address `0x0` (bootloader, partition table, safeboot and firmware) |
+| `tasmota32-zbgw03-matter.bin` | Full firmware: update of a module already running Tasmota with the safeboot layout (file upload or OTA) |
+| `tasmota32-zbgw03-matter-lite.factory.bin` | [Lite version](#lite-version): first install over serial |
+| `tasmota32-zbgw03-matter-lite.bin` | Lite version: update (file upload or OTA) |
 
-Releases up to `v16.0.0.2-matter2` only contain the `.bin`. Each run of the **Build
-firmware** workflow (**Actions** tab) provides both files in its `firmware` artifact (GitHub
-login required, kept 90 days).
+Releases up to `v16.0.0.2-matter2` only contain the `.bin`, and the lite version is only in
+later releases. Each run of the **Build firmware** workflow (**Actions** tab) provides all
+files in its `firmware` artifact (GitHub login required, kept 90 days).
+
+The steps below use the full firmware's file names; for the lite version, use the `-lite`
+files.
 
 ## First install over serial
 
@@ -159,6 +195,8 @@ renames a device. Tasmota only supports version 8 of the EZSP protocol.
 
 ### Ethernet
 
+Full firmware only: the lite version is Wi-Fi only.
+
 With the template above, `ETH: Ethernet using RMII` at boot is expected. `Ethernet 1` /
 `Ethernet 0` turns the Ethernet port on or off (the module restarts).
 
@@ -222,6 +260,16 @@ With the safeboot layout, `Upgrade 1` restarts the module into the `safeboot` pa
 downloads the `.bin`, writes it to `app0` and restarts into the new firmware. Settings
 (Wi-Fi, template, Zigbee, Matter) are kept.
 
+The lite version has its own address, compiled the same way, so an OTA update keeps the
+installed variant:
+
+```
+https://github.com/gnatali/tasmota32-zbgw03-matter/releases/latest/download/tasmota32-zbgw03-matter-lite.bin
+```
+
+To switch variant by OTA: `OtaUrl` followed by the other variant's address, then
+`Upgrade 1`. Once on the new variant, `OtaUrl 1` restores its own compiled address.
+
 A module still running a firmware named `zbbrdgpro-matter` (release `v16.0.0.2-matter1` and
 earlier) asks for an old file name that newer releases no longer contain. Update it once by
 **Upgrade by file upload**, or with
@@ -232,7 +280,7 @@ followed by `Upgrade 1`.
 
 The firmware is built by GitHub Actions (`.github/workflows/build.yml`):
 
-- **Actions → Build firmware → Run workflow** builds the firmware; the files are in the
+- **Actions → Build firmware → Run workflow** builds both firmwares; the files are in the
   run's `firmware` artifact.
 - Pushing a `v*` tag also publishes them as a **Release**:
 
@@ -248,14 +296,15 @@ workflow.
 
 | File | Role |
 |---|---|
-| `platformio_override.ini` | `tasmota32-zbgw03-matter` environment: extends `tasmota32-zbbrdgpro`, adds Matter, sets partitions, `OTA_URL` and components |
-| `user_config_override.h` | Replaces ZNP with EZSP (copied to `tasmota/` before the build) |
+| `platformio_override.ini` | `tasmota32-zbgw03-matter` environment: extends `tasmota32-zbbrdgpro`, adds Matter, sets partitions, `OTA_URL` and components. `tasmota32-zbgw03-matter-lite` environment: same, without `FIRMWARE_ZBBRDGPRO`, with `FIRMWARE_ZBGW03_LITE` |
+| `user_config_override.h` | Replaces ZNP with EZSP; for the lite version, defines the firmware contents (`FIRMWARE_ZBGW03_LITE` block). Copied to `tasmota/` before the build |
 | `patches/*.patch` | Fixes applied to the Tasmota code before the build; the Matter Berry code is regenerated from its sources during the build |
 | `.github/workflows/build.yml` | Clones Tasmota, copies both files, applies the fixes, builds, publishes |
 
 To build locally, clone Tasmota at the same commit, copy `platformio_override.ini` to its
 root and `user_config_override.h` to its `tasmota/` folder, apply the fixes
-(`git -C tasmota apply ../patches/*.patch`), then run `pio run -e tasmota32-zbgw03-matter`.
+(`git -C tasmota apply ../patches/*.patch`), then run `pio run -e tasmota32-zbgw03-matter` (full) or
+`pio run -e tasmota32-zbgw03-matter-lite` (lite).
 
 When changing `TASMOTA_REF`, check that each fix still applies: otherwise the workflow
 stops. A fix that became useless (fixed in Tasmota) can be deleted.

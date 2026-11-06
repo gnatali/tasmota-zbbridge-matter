@@ -46,22 +46,41 @@ et mettre à jour `tuya.json`.
 
 1. Mettre à jour la passerelle avec un firmware de ce dépôt qui contient le correctif.
 2. **Outils → Gestion des fichiers** : envoyer `tuya_local.be` et `tuya.json`.
-3. Créer (ou compléter) `autoexec.be` pour charger le driver au démarrage :
+3. Créer (ou compléter) `autoexec.be` pour charger le driver **30 secondes après le
+   démarrage**, et seulement s'il reste assez de mémoire :
 
    ```berry
-   load("tuya_local.be")
+   def tuya_start()
+     var free = tasmota.memory()['heap_free']
+     if free < 60
+       tasmota.log(f"TUY: driver non charge, memoire libre insuffisante ({free} Ko)", 2)
+       return
+     end
+     tasmota.log(f"TUY: chargement du driver, memoire libre {free} Ko", 2)
+     load("tuya_local.be")
+   end
+   tasmota.set_timer(30000, tuya_start)
    ```
 
-4. `Restart 1`. La console affiche :
+   **Ne pas** écrire simplement `load("tuya_local.be")` : sur la ZB-GW03 (sans PSRAM), le
+   chargement du driver pendant que Zigbee et Matter démarrent fait planter l'ESP32. Après
+   quatre plantages rapides, la protection contre les boucles de redémarrage de Tasmota
+   démarre **sans Berry** (donc sans Matter : `Br` répond `Unknown`) et **désactive toutes
+   les règles** (à réactiver ensuite avec `Rule1 1`...). En cas de souci, `SetOption153 1`
+   empêche le lancement d'`autoexec.be` au démarrage suivant.
+
+4. `Restart 1`. Au bout de 30 secondes, la console affiche :
 
    ```
+   TUY: chargement du driver, memoire libre 74 Ko
    TUY: 5 appareil(s), 16 endpoint(s) Matter
    TUY: Ventilateur (192.168.1.18) connecte, protocole 3.5
    ...
    ```
 
-5. Vérifier la mémoire libre (`Heap` dans `Status 4`) avant et après : le driver occupe de
-   l'ordre de 30 à 50 Ko, et la ZB-GW03 n'a pas de PSRAM.
+5. `TuyaStatus` liste chaque appareil avec `"Connected":true` et ses valeurs. Vérifier la
+   mémoire libre (`Heap` dans `Status 4`) une fois tous les appareils connectés : la
+   ZB-GW03 n'a pas de PSRAM.
 
 ## Créer les endpoints Matter
 

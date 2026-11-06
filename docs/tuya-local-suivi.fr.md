@@ -15,10 +15,10 @@ Tuya Wi-Fi et les sous-appareils Zigbee de la passerelle Tuya, et les présenter
 | Crypto Berry : `USE_BERRY_CRYPTO_AES_CBC` + correctif `berry-aes-gcm-128-aad.patch` | ✅ compilé, en service sur la passerelle |
 | Driver `berry/tuya_local.be` : protocoles 3.3 / 3.4 / 3.5, passerelle Tuya (`cid`) | ✅ **testé sur les vrais appareils** : 5 appareils Wi-Fi et 7 sous-appareils connectés, valeurs correctes |
 | Banc de test (12 scénarios) dans le workflow | ✅ passe en CI |
-| **Solidification du driver** (`custom_berry_solidify`, correctif `berry-solidify-all-classes.patch`) | ✅ banc de test : 12/12 sur le driver source **et** sur le driver solidifié ; ✅ build du firmware (2015 Ko) ; ✅ **sur la passerelle : le driver ne prend plus que 10 Ko** (71 → 61 Ko) |
+| **Solidification du driver** (`custom_berry_solidify`, correctif `berry-solidify-all-classes.patch`) | ✅ banc de test : 12/12 sur le driver source **et** sur le driver solidifié ; ✅ build du firmware (2015 Ko) ; ✅ sur la passerelle : 10 Ko avec **3 appareils connectés** (71 → 61 Ko) ; ⏳ mesure avec les 12 |
 | Documentation utilisateur `docs/tuya-local.fr.md` | ✅ |
 | Chargement différé dans `autoexec.be` (plantage au démarrage) | ✅ corrigé et documenté |
-| **Mémoire** : 34 Ko libres avec le driver chargé depuis le système de fichiers, **61 Ko** avec le driver solidifié | ✅ 30 Ko regagnés, marge pour les endpoints Matter |
+| **Mémoire** : 34 Ko libres avec le driver chargé depuis le système de fichiers (12 appareils), 61 Ko avec le driver solidifié (3 appareils) | ⏳ gain réel à confirmer avec les 12 appareils connectés |
 | Endpoints Matter et essais dans Google Home | ⏳ pas commencé |
 | Pergola 1 et 2 (projecteurs RGB) | ⏳ absentes du scan : IP et version inconnues, désactivées dans `tuya.json` |
 | Migration des contrôleurs LED Zigbee Bureau et Salon sur la ZB-GW03 | ⏳ décidée, pas faite |
@@ -67,14 +67,16 @@ Tuya Wi-Fi et les sous-appareils Zigbee de la passerelle Tuya, et les présenter
 | 30 s après le démarrage, juste avant de charger le driver | 74 Ko |
 | Driver chargé, 12 appareils connectés, aucun endpoint Matter Tuya | **34 Ko** |
 | **Driver solidifié** (firmware 2015 Ko, 6 novembre) : juste avant de démarrer le driver | 71 Ko |
-| **Driver solidifié** : driver démarré | **61 Ko** |
+| **Driver solidifié** : driver démarré, **3 appareils connectés** | **61 Ko** |
 
-Chargé depuis le système de fichiers, le driver consommait environ 40 Ko (74 − 34 : code
-compilé en RAM, état des appareils, tampons). **Solidifié, il ne consomme plus que 10 Ko**
-(71 − 61 : état des appareils et tampons), soit **30 Ko regagnés** : le code compilé
-représentait donc les trois quarts de la consommation. Avant le driver, le heap est 3 Ko plus
-bas qu'avant (71 contre 74 Ko), écart de l'ordre de la variation d'une mesure à l'autre. Il n'y
-a pas eu de mesure après `Br tasmota.gc()`.
+Chargé depuis le système de fichiers, le driver consommait environ 40 Ko avec 12 appareils
+connectés (74 − 34 : code compilé en RAM, état des appareils, tampons). Solidifié, il consomme
+10 Ko avec **3 appareils connectés seulement** (71 − 61 : état des appareils et tampons, plus
+de code en RAM). Les deux mesures ne sont donc **pas comparables** : l'état (DP reçus, tampons
+TCP, clés de session) croît avec le nombre d'appareils connectés, et la pince (22 DP) ou la
+passerelle (7 sous-appareils) pèsent plus qu'une ampoule. Le gain réel reste à mesurer avec
+les 12 appareils connectés. Avant le driver, le heap est 3 Ko plus bas qu'avant (71 contre
+74 Ko). Il n'y a pas eu de mesure après `Br tasmota.gc()`.
 
 ## Inventaire (sans clés ni identifiants : voir `tuya.json` sur la passerelle)
 
@@ -99,8 +101,10 @@ endpoints Matter `z_light2` ou `z_light1`.
 
 ## Prochaines étapes (par priorité)
 
-1. ~~**Solidifier le driver**~~ : fait et validé sur la passerelle (10 Ko au lieu de 40,
-   voir les mesures). Le seuil de 60 Ko d'`autoexec.be` reste adapté (71 Ko disponibles).
+1. **Solidifier le driver** : fait, il tourne sur la passerelle (10 Ko avec 3 appareils
+   connectés). Reste à relever `Heap` avec **les 12 appareils connectés** (`TuyaStatus`
+   indique `Connected` pour chacun), à comparer aux 34 Ko d'avant. Le seuil de 60 Ko
+   d'`autoexec.be` reste adapté (71 Ko disponibles avant le démarrage).
 2. **Matter** : créer les endpoints un par un (commencer par `Prise Lisseur` en v.Relay+Power,
    `Ventilateur` en v.Fan, `Entrée-Porche` en v.Light 2 CT), `Restart 1`, puis tester les
    deux sens avec Google Home en surveillant `Heap`.

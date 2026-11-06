@@ -15,10 +15,10 @@ Tuya Wi-Fi et les sous-appareils Zigbee de la passerelle Tuya, et les présenter
 | Crypto Berry : `USE_BERRY_CRYPTO_AES_CBC` + correctif `berry-aes-gcm-128-aad.patch` | ✅ compilé, en service sur la passerelle |
 | Driver `berry/tuya_local.be` : protocoles 3.3 / 3.4 / 3.5, passerelle Tuya (`cid`) | ✅ **testé sur les vrais appareils** : 5 appareils Wi-Fi et 7 sous-appareils connectés, valeurs correctes |
 | Banc de test (12 scénarios) dans le workflow | ✅ passe en CI |
-| **Solidification du driver** (`custom_berry_solidify`, correctif `berry-solidify-all-classes.patch`) | ✅ banc de test : 12/12 sur le driver source **et** sur le driver solidifié ; ✅ build du firmware (2015 Ko) ; ✅ sur la passerelle : 10 Ko avec **3 appareils connectés** (71 → 61 Ko) ; ⏳ mesure avec les 12 |
+| **Solidification du driver** (`custom_berry_solidify`, correctif `berry-solidify-all-classes.patch`) | ✅ banc de test : 12/12 sur le driver source **et** sur le driver solidifié ; ✅ build du firmware (2015 Ko) ; ✅ sur la passerelle : **48 Ko libres avec les 12 appareils connectés** (34 Ko avant), le driver consomme ~23 Ko au lieu de ~40 |
 | Documentation utilisateur `docs/tuya-local.fr.md` | ✅ |
 | Chargement différé dans `autoexec.be` (plantage au démarrage) | ✅ corrigé et documenté |
-| **Mémoire** : 34 Ko libres avec le driver chargé depuis le système de fichiers (12 appareils), 61 Ko avec le driver solidifié (3 appareils) | ⏳ gain réel à confirmer avec les 12 appareils connectés |
+| **Mémoire** avec les 12 appareils connectés : 34 Ko libres avec le driver chargé depuis le système de fichiers, **48 Ko** avec le driver solidifié | ✅ ~14 Ko de marge en plus ; coût des endpoints Matter à mesurer |
 | Endpoints Matter et essais dans Google Home | ⏳ pas commencé |
 | Pergola 1 et 2 (projecteurs RGB) | ⏳ absentes du scan : IP et version inconnues, désactivées dans `tuya.json` |
 | Migration des contrôleurs LED Zigbee Bureau et Salon sur la ZB-GW03 | ⏳ décidée, pas faite |
@@ -67,16 +67,18 @@ Tuya Wi-Fi et les sous-appareils Zigbee de la passerelle Tuya, et les présenter
 | 30 s après le démarrage, juste avant de charger le driver | 74 Ko |
 | Driver chargé, 12 appareils connectés, aucun endpoint Matter Tuya | **34 Ko** |
 | **Driver solidifié** (firmware 2015 Ko, 6 novembre) : juste avant de démarrer le driver | 71 Ko |
-| **Driver solidifié** : driver démarré, **3 appareils connectés** | **61 Ko** |
+| **Driver solidifié** : driver démarré, 3 appareils connectés | 61 Ko |
+| **Driver solidifié** : driver démarré, **12 appareils connectés** (endpoint Matter `Entrée-Porche` créé) | **48 Ko** |
 
-Chargé depuis le système de fichiers, le driver consommait environ 40 Ko avec 12 appareils
-connectés (74 − 34 : code compilé en RAM, état des appareils, tampons). Solidifié, il consomme
-10 Ko avec **3 appareils connectés seulement** (71 − 61 : état des appareils et tampons, plus
-de code en RAM). Les deux mesures ne sont donc **pas comparables** : l'état (DP reçus, tampons
-TCP, clés de session) croît avec le nombre d'appareils connectés, et la pince (22 DP) ou la
-passerelle (7 sous-appareils) pèsent plus qu'une ampoule. Le gain réel reste à mesurer avec
-les 12 appareils connectés. Avant le driver, le heap est 3 Ko plus bas qu'avant (71 contre
-74 Ko). Il n'y a pas eu de mesure après `Br tasmota.gc()`.
+Avec les 12 appareils connectés, le driver consommait environ **40 Ko** chargé depuis le
+système de fichiers (74 − 34 : code compilé en RAM, état des appareils, tampons), et environ
+**23 Ko** solidifié (71 − 48 : état et tampons seulement). La solidification a donc retiré
+**~17 Ko** de code de la RAM ; il reste **48 Ko libres au lieu de 34** (+14 Ko, le heap de
+départ étant 3 Ko plus bas : 71 contre 74 Ko). L'état seul coûte ~23 Ko pour 12 appareils,
+soit ~2 Ko par appareil en moyenne : il croît avec le nombre d'appareils connectés et de DP
+reçus (pince : 22 DP, passerelle : 7 sous-appareils). Avec 3 appareils, 10 Ko (71 → 61).
+Les 48 Ko incluent l'endpoint Matter `Entrée-Porche`. Il n'y a pas eu de mesure après
+`Br tasmota.gc()`.
 
 ## Inventaire (sans clés ni identifiants : voir `tuya.json` sur la passerelle)
 
@@ -101,15 +103,14 @@ endpoints Matter `z_light2` ou `z_light1`.
 
 ## Prochaines étapes (par priorité)
 
-1. **Solidifier le driver** : fait, il tourne sur la passerelle (10 Ko avec 3 appareils
-   connectés). Reste à relever `Heap` avec **les 12 appareils connectés** (`TuyaStatus`
-   indique `Connected` pour chacun), à comparer aux 34 Ko d'avant. Le seuil de 60 Ko
-   d'`autoexec.be` reste adapté (71 Ko disponibles avant le démarrage).
+1. ~~**Solidifier le driver**~~ : fait et mesuré, 48 Ko libres avec les 12 appareils au lieu
+   de 34 (voir les mesures). Le seuil de 60 Ko d'`autoexec.be` reste adapté (71 Ko avant le
+   démarrage du driver, ~23 Ko consommés ensuite).
 2. **Matter** : créer les endpoints un par un (commencer par `Prise Lisseur` en v.Relay+Power,
    `Ventilateur` en v.Fan, `Entrée-Porche` en v.Light 2 CT), `Restart 1`, puis tester les
    deux sens avec Google Home en surveillant `Heap`.
-3. **Réduire la RAM du driver** si les endpoints Matter la rendent encore nécessaire (moins
-   prioritaire depuis la solidification) :
+3. **Réduire la RAM du driver** (~23 Ko d'état pour 12 appareils) si les endpoints Matter
+   ne laissent pas assez de marge :
    - ne garder dans `dps` que les DP utilisés par une liaison ou un capteur (la pince en
      envoie 22, les prises 11) ;
    - limiter `publish_result` (un message MQTT par changement, la pince en envoie souvent).

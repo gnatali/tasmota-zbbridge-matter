@@ -80,6 +80,19 @@ reçus (pince : 22 DP, passerelle : 7 sous-appareils). Avec 3 appareils, 10 Ko (
 Les 48 Ko incluent l'endpoint Matter `Entrée-Porche`. Il n'y a pas eu de mesure après
 `Br tasmota.gc()`.
 
+**Répartition sur le banc de test** (driver solidifié, interpréteur 64 bits : sur l'ESP32,
+les objets Berry font à peu près la moitié) : driver sans appareil ~3,7 Ko ; premier appareil
+~8 Ko (dont le module `crypto` de test) ; chaque nœud de plus ~2,6 Ko (état `dps`, configuration
+gardée en map, tampons `rx`/`tx`, objets de connexion). Stable sur 3 min de fonctionnement :
+pas de fuite.
+
+**Réécrire le driver en C ?** Étudié le 6 novembre, écarté pour l'instant. Le gain se limiterait
+à l'état Berry des appareils (de l'ordre de 1 Ko par appareil sur l'ESP32, à confirmer) : les
+connexions TCP coûtent autant en C, et les endpoints Matter (Berry) ne changent pas. Coûts : un
+gros correctif de Tasmota à maintenir à chaque `TASMOTA_REF`, le banc de test à réécrire, et
+une erreur en C fait planter l'ESP32 (boucle de redémarrage, Matter désactivé). D'abord :
+réduire l'état Berry (étape 3) et mesurer le coût des endpoints Matter.
+
 ## Inventaire (sans clés ni identifiants : voir `tuya.json` sur la passerelle)
 
 **Appareils Wi-Fi**

@@ -31,7 +31,7 @@ les mesures faites sur la passerelle et les prochaines étapes sont dans
 | `user_config_override.h` | options de compilation (EZSP, `USE_BERRY_CRYPTO_AES_CBC`...) |
 | `patches/*.patch` | correctifs appliqués sur Tasmota par le workflow (`git apply`), dans l'ordre alphabétique |
 | `.github/workflows/build.yml` | build : clone Tasmota au commit `TASMOTA_REF`, tests du driver, correctifs, `pio run` |
-| `berry/tuya_local.be` | driver Tuya local (protocoles 3.3/3.4/3.5, passerelle Tuya, pont Matter) |
+| `berry/tuya_local.be` | driver Tuya local (protocoles 3.3/3.4/3.5, passerelle Tuya, pont Matter), solidifié dans le firmware (`custom_berry_solidify`) |
 | `berry/tuya.example.json` | exemple de configuration, **sans clés** |
 | `berry/test/` | banc de test du driver (voir `tests-tuya.md`) |
 | `docs/tuya-local.fr.md` | doc utilisateur du driver |

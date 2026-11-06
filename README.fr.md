@@ -182,8 +182,9 @@ Sans PSRAM, Zigbee et Matter laissent environ 70 à 100 Ko de mémoire libre : s
 ### Appareils Tuya en local
 
 Le driver Berry `berry/tuya_local.be` pilote les appareils Tuya Wi-Fi (protocoles 3.3, 3.4 et
-3.5) et les sous-appareils d'une passerelle Tuya, sans le cloud, et les présente à Matter. Voir
-[docs/tuya-local.fr.md](docs/tuya-local.fr.md).
+3.5) et les sous-appareils d'une passerelle Tuya, sans le cloud, et les présente à Matter. Il
+est intégré au firmware (solidifié : son code reste en flash au lieu d'être compilé en RAM) et
+démarré par `autoexec.be`. Voir [docs/tuya-local.fr.md](docs/tuya-local.fr.md).
 
 ### Bouton Zigbee dans Google Home
 

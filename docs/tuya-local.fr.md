@@ -44,26 +44,36 @@ et mettre à jour `tuya.json`.
 
 ## Installer le driver
 
-1. Mettre à jour la passerelle avec un firmware de ce dépôt qui contient le correctif.
-2. **Outils → Gestion des fichiers** : envoyer `tuya_local.be` et `tuya.json`.
-3. Créer (ou compléter) `autoexec.be` pour charger le driver **30 secondes après le
+1. Mettre à jour la passerelle avec un firmware de ce dépôt. Le driver y est **intégré**
+   (solidifié) : son code est en flash, au lieu d'être compilé en RAM au chargement. Il n'y a
+   plus de fichier `tuya_local.be` à envoyer (en supprimer une ancienne copie est sans
+   risque : il n'est chargé que si le firmware ne contient pas le driver).
+2. **Outils → Gestion des fichiers** : envoyer `tuya.json`.
+3. Créer (ou compléter) `autoexec.be` pour démarrer le driver **30 secondes après le
    démarrage**, et seulement s'il reste assez de mémoire :
 
    ```berry
    def tuya_start()
+     import global
      var free = tasmota.memory()['heap_free']
      if free < 60
-       tasmota.log(f"TUY: driver non charge, memoire libre insuffisante ({free} Ko)", 2)
+       tasmota.log(f"TUY: driver non demarre, memoire libre insuffisante ({free} Ko)", 2)
        return
      end
-     tasmota.log(f"TUY: chargement du driver, memoire libre {free} Ko", 2)
-     load("tuya_local.be")
+     tasmota.log(f"TUY: demarrage du driver, memoire libre {free} Ko", 2)
+     # firmware sans le driver integre : charger le fichier tuya_local.be
+     if !global.contains("TuyaLocal")  load("tuya_local.be")  end
+     global.tuya_local = TuyaLocal()
    end
    tasmota.set_timer(30000, tuya_start)
    ```
 
-   **Ne pas** écrire simplement `load("tuya_local.be")` : sur la ZB-GW03 (sans PSRAM), le
-   chargement du driver pendant que Zigbee et Matter démarrent fait planter l'ESP32. Après
+   Le driver est une classe : c'est `TuyaLocal()` qui le démarre, et `global.tuya_local`
+   le garde accessible depuis la console Berry (`tuya_local.devices`...). Un ancien
+   `autoexec.be` qui se contente de `load("tuya_local.be")` ne démarre plus le driver.
+
+   **Ne pas** démarrer le driver directement au lancement d'`autoexec.be` : sur la ZB-GW03
+   (sans PSRAM), le faire pendant que Zigbee et Matter démarrent a fait planter l'ESP32. Après
    quatre plantages rapides, la protection contre les boucles de redémarrage de Tasmota
    démarre **sans Berry** (donc sans Matter : `Br` répond `Unknown`) et **désactive toutes
    les règles** (à réactiver ensuite avec `Rule1 1`...). En cas de souci, `SetOption153 1`
@@ -72,7 +82,7 @@ et mettre à jour `tuya.json`.
 4. `Restart 1`. Au bout de 30 secondes, la console affiche :
 
    ```
-   TUY: chargement du driver, memoire libre 74 Ko
+   TUY: demarrage du driver, memoire libre 74 Ko
    TUY: 5 appareil(s), 16 endpoint(s) Matter
    TUY: Ventilateur (192.168.1.18) connecte, protocole 3.5
    ...

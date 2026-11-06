@@ -25,7 +25,7 @@ Firmware Tasmota de la passerelle eWeLink ZB-GW03 (Zigbee, Ethernet, Matter, app
 * [`projet.md`](.claude/rules/projet.md) : contexte, matériel (pas de PSRAM, RAM critique), structure du dépôt, chantier en cours.
 * [`build.md`](.claude/rules/build.md) : build GitHub Actions, lancement manuel, artefacts, correctifs.
 * [`tests-tuya.md`](.claude/rules/tests-tuya.md) : banc de test du driver Tuya.
-* [`berry-pieges.md`](.claude/rules/berry-pieges.md) : pièges de Berry sous Tasmota, chargement différé du driver.
+* [`berry-pieges.md`](.claude/rules/berry-pieges.md) : pièges de Berry sous Tasmota, driver solidifié, démarrage différé.
 * [`secrets.md`](.claude/rules/secrets.md) : clés et identifiants Tuya hors du dépôt.
 
 Voir aussi : suivi du chantier Tuya dans [`docs/tuya-local-suivi.fr.md`](docs/tuya-local-suivi.fr.md).

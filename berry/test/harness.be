@@ -57,8 +57,15 @@ class tcpclientasync
   end
 end
 
-compile("../tuya_local.be", "file")()
+# Le driver est instancie ici comme dans autoexec.be : le fichier ne contient que les classes.
+# Interpreteur avec le driver solidifie : les classes sont deja natives. Sinon, le source est
+# compile en mode strict, comme load() dans Tasmota.
 import global
+if !global.contains("TuyaLocal")
+  import strict
+  compile("../tuya_local.be", "file")()
+end
+global.tuya_local = global.TuyaLocal()
 var drv = global.tuya_local
 print("READY")
 

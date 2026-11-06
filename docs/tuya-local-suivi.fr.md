@@ -15,9 +15,10 @@ Tuya Wi-Fi et les sous-appareils Zigbee de la passerelle Tuya, et les présenter
 | Crypto Berry : `USE_BERRY_CRYPTO_AES_CBC` + correctif `berry-aes-gcm-128-aad.patch` | ✅ compilé, en service sur la passerelle |
 | Driver `berry/tuya_local.be` : protocoles 3.3 / 3.4 / 3.5, passerelle Tuya (`cid`) | ✅ **testé sur les vrais appareils** : 5 appareils Wi-Fi et 7 sous-appareils connectés, valeurs correctes |
 | Banc de test (12 scénarios) dans le workflow | ✅ passe en CI |
+| **Solidification du driver** (`custom_berry_solidify`, correctif `berry-solidify-all-classes.patch`) | ✅ banc de test : 12/12 sur le driver source **et** sur le driver solidifié ; ⏳ build du firmware et mesure de `Heap` sur la passerelle |
 | Documentation utilisateur `docs/tuya-local.fr.md` | ✅ |
 | Chargement différé dans `autoexec.be` (plantage au démarrage) | ✅ corrigé et documenté |
-| **Mémoire** : il reste 34 Ko avec le driver | ⚠️ trop juste pour les 16 endpoints Matter → intégrer le driver au firmware |
+| **Mémoire** : il restait 34 Ko avec le driver chargé depuis le système de fichiers | ⚠️ trop juste pour les 16 endpoints Matter → driver solidifié, gain à mesurer |
 | Endpoints Matter et essais dans Google Home | ⏳ pas commencé |
 | Pergola 1 et 2 (projecteurs RGB) | ⏳ absentes du scan : IP et version inconnues, désactivées dans `tuya.json` |
 | Migration des contrôleurs LED Zigbee Bureau et Salon sur la ZB-GW03 | ⏳ décidée, pas faite |
@@ -41,6 +42,19 @@ Tuya Wi-Fi et les sous-appareils Zigbee de la passerelle Tuya, et les présenter
    Berry (`Br` → `Unknown`, `/bc` introuvable, Matter absent) et a désactivé les règles.
    Correction : chargement 30 s après le démarrage, s'il reste au moins 60 Ko. Depuis, tout
    fonctionne.
+7. **Solidification** (étape 1 ci-dessous) : le driver est intégré au firmware par
+   `custom_berry_solidify = ../berry/tuya_local.be`. Ce qu'il a fallu changer :
+   - le script de Tasmota (`pio-tools/solidify-from-url.py`) n'enregistrait dans
+     `be_modtab.c` que la **première** classe d'un fichier : correctif
+     `berry-solidify-all-classes.patch`, pour les cinq classes du driver ;
+   - une classe solidifiée est en lecture seule : la table CRC, calculée au premier appel
+     dans une `static var`, est remplacée par une table constante de 16 entrées (CRC par
+     quartet, vérifiée contre `zlib.crc32` et la valeur de référence `0xCBF43926`) ;
+   - plus de code au premier niveau : imports dans les méthodes, instanciation dans
+     `autoexec.be` (`global.tuya_local = TuyaLocal()`), qui charge encore `tuya_local.be`
+     si le firmware ne contient pas le driver ;
+   - le banc de test solidifie le driver comme le build (`berry_port`, `coc`) et rejoue les
+     12 scénarios sur les classes natives. Le C généré fait ~206 Ko de source.
 
 ## Mesures sur la passerelle
 
@@ -77,17 +91,15 @@ endpoints Matter `z_light2` ou `z_light1`.
 
 ## Prochaines étapes (par priorité)
 
-1. **Intégrer le driver au firmware (solidification)**, pour mettre son code en flash et
-   regagner de l'ordre de 15 à 20 Ko de RAM.
-   - Piste officielle : l'option `custom_berry_solidify = <URL du .be>` de PlatformIO
-     (`pio-tools/solidify-from-url.py`). Elle télécharge le fichier, le solidifie dans
-     `lib/libesp32/berry_custom` et l'enregistre dans `be_modtab.c`. Il faut que le fichier
-     soit une classe marquée `#@ solidify:TuyaLocal,...` (ou un module), **sans
-     instanciation au premier niveau**. L'instanciation passe dans `autoexec.be` (différée,
-     comme aujourd'hui).
-   - Autre piste : un correctif qui dépose le fichier dans `berry_custom/src/embedded`.
-   - Vérifier : compilation, `Heap` avant et après, et que les tests passent toujours. Le
-     harnais charge le fichier ; prévoir l'instanciation séparée.
+1. **Valider la solidification sur la passerelle** (le code est fait, voir l'historique) :
+   - lancer le build sur `tuya-local-crypto` et vérifier qu'il passe (taille du firmware,
+     à comparer aux 1992 Ko d'avant) ;
+   - flasher, **remplacer `autoexec.be`** par la version de `docs/tuya-local.fr.md` (l'ancienne
+     ne fait que `load("tuya_local.be")` et ne démarrerait plus le driver), supprimer
+     `/tuya_local.be` ;
+   - relever `Heap` (`Status 4`) avant et après le démarrage du driver, à comparer aux
+     74 → 34 Ko d'avant, puis après `Br tasmota.gc()`. Ajuster si besoin le seuil de 60 Ko
+     d'`autoexec.be`.
 2. **Matter** : créer les endpoints un par un (commencer par `Prise Lisseur` en v.Relay+Power,
    `Ventilateur` en v.Fan, `Entrée-Porche` en v.Light 2 CT), `Restart 1`, puis tester les
    deux sens avec Google Home en surveillant `Heap`.
@@ -114,7 +126,7 @@ endpoints Matter `z_light2` ou `z_light1`.
 |---|---|---|
 | `devices.json`, `snapshot.json` | PC de Guillaume (sortie de `tinytuya wizard` / `scan`) | clés locales, identifiants, IP, versions |
 | `/tuya.json` | système de fichiers de la passerelle | configuration réelle, **avec les clés** |
-| `/tuya_local.be`, `/autoexec.be` | système de fichiers de la passerelle | driver et chargement différé |
+| `/autoexec.be` | système de fichiers de la passerelle | démarrage différé du driver (`/tuya_local.be` n'est plus nécessaire avec le driver solidifié) |
 
 Pour reprendre le développement, demander à Guillaume les fichiers dont la tâche a besoin.
 Ne jamais les committer.

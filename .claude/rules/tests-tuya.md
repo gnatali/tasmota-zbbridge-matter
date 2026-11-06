@@ -18,6 +18,11 @@ bash berry/test/run_tests.sh tasmota     # ecrit /tuya.json : conteneur ou CI un
   avec AAD, HMAC-SHA256, MD5 sur le BearSSL de Tasmota). `crypto.be` reproduit l'API du module
   `crypto` de Tasmota, et `harness.be` simule `tasmota` et `tcpclientasync`, piloté par
   `test_tuya_local.py` ligne à ligne.
+- Les 12 scénarios sont joués **deux fois** : driver source (compilé par le harnais en mode
+  strict), puis driver **solidifié** comme au build (port Python de Berry `berry_port`, table
+  des chaînes `coc`, classes natives en lecture seule liées dans un second interpréteur).
+  Une erreur de solidification ou une écriture dans une `static var` y apparaît sans attendre
+  le build PlatformIO. Le harnais instancie `TuyaLocal()` comme `autoexec.be`.
 - Les faux appareils (`fake_tuya.py`) sont construits sur **TinyTuya**, et ont été validés
   contre le vrai client TinyTuya. C'est la référence du protocole : en cas de doute,
   comparer au source de TinyTuya (`tinytuya/core/XenonDevice.py`, `message_helper.py`).

@@ -11,51 +11,45 @@
 
   Necessite un firmware avec USE_BERRY_CRYPTO_AES_CBC (3.3, 3.4) et le correctif
   AES_GCM 128 bits avec AAD (3.5).
--#
 
-import string
-import json
-import crypto
+  Solidifie dans le firmware (custom_berry_solidify) : les classes sont alors en flash, en
+  lecture seule, et deviennent des classes natives. D'ou trois regles :
+  - pas de code au premier niveau hors des classes : le driver est instancie par autoexec.be
+    (`global.tuya_local = TuyaLocal()`), pas par ce fichier ;
+  - les modules (string, json, crypto) sont importes dans les methodes qui s'en servent ;
+  - pas d'ecriture dans une variable statique (`static var`) : constantes uniquement.
+  Le fichier reste chargeable tel quel avec load("tuya_local.be") sur un firmware qui ne
+  l'embarque pas (meme instanciation ensuite).
+-#
 
 #################################################################################
 # TuyaCodec : primitives du protocole (sans etat)
 #################################################################################
+#@ solidify:TuyaCodec,weak
 class TuyaCodec
-  static var _crc_table = nil
+  # CRC-32 (polynome 0xEDB88320) par quartet : table constante de 16 entrees, sans calcul
+  # au premier appel (une classe solidifiee est en lecture seule)
+  static var CRC_NIBBLE = [0x00000000, 0x1DB71064, 0x3B6E20C8, 0x26D930AC, 0x76DC4190, 0x6B6B51F4,
+                           0x4DB26158, 0x5005713C, 0xEDB88320, 0xF00F9344, 0xD6D6A3E8, 0xCB61B38C,
+                           0x9B64C2B0, 0x86D3D2D4, 0xA00AE278, 0xBDBDF21C]
   # commandes envoyees sans l'en-tete de version "3.x" + 12 octets nuls
   static var NO_HEADER = [3, 4, 5, 9, 10, 16, 18, 64]
 
   static def crc32(b, len)
-    var t = TuyaCodec._crc_table
-    if t == nil
-      t = bytes()
-      var n = 0
-      while n < 256
-        var c = n
-        var k = 0
-        while k < 8
-          if c & 1
-            c = 0xEDB88320 ^ ((c >> 1) & 0x7FFFFFFF)
-          else
-            c = (c >> 1) & 0x7FFFFFFF
-          end
-          k += 1
-        end
-        t.add(c, 4)
-        n += 1
-      end
-      TuyaCodec._crc_table = t
-    end
+    var t = TuyaCodec.CRC_NIBBLE
     var crc = 0xFFFFFFFF
     var i = 0
     while i < len
-      crc = t.get(((crc ^ b[i]) & 0xFF) * 4, 4) ^ ((crc >> 8) & 0x00FFFFFF)
+      crc = crc ^ b[i]
+      crc = t[crc & 0x0F] ^ ((crc >> 4) & 0x0FFFFFFF)
+      crc = t[crc & 0x0F] ^ ((crc >> 4) & 0x0FFFFFFF)
       i += 1
     end
     return crc ^ 0xFFFFFFFF
   end
 
   static def hmac(key, data)
+    import crypto
     return crypto.HMAC_SHA256(key).update(data).out()
   end
 
@@ -77,6 +71,7 @@ class TuyaCodec
 
   # AES-128-ECB, bloc par bloc, avec AES-CBC et un IV nul
   static def ecb(key, data, enc)
+    import crypto
     var out = bytes()
     var i = 0
     while i < data.size()
@@ -102,6 +97,7 @@ end
 #################################################################################
 # TuyaBinding : liaison entre des DP Tuya et un endpoint Matter virtuel
 #################################################################################
+#@ solidify:TuyaBinding,weak
 class TuyaBinding
   var node            # TuyaNode (appareil ou sous-appareil) qui porte les DP
   var ep              # nom de l'endpoint Matter
@@ -125,6 +121,7 @@ class TuyaBinding
 
   # Matter -> Tuya : attributs MtrReceived -> map de DP a envoyer
   def to_tuya(a)
+    import string
     var t = self.type
     var out = {}
     var st = self.node.dps
@@ -286,6 +283,7 @@ end
 #################################################################################
 # TuyaNode : un appareil logique (appareil Wi-Fi ou sous-appareil de passerelle)
 #################################################################################
+#@ solidify:TuyaNode,weak
 class TuyaNode
   var name, id, cid          # cid : identifiant du sous-appareil (nil pour un appareil Wi-Fi)
   var conn                   # TuyaDevice qui porte la connexion TCP
@@ -309,6 +307,7 @@ class TuyaNode
 
   # nouvelles valeurs recues de l'appareil
   def update(dps)
+    import json
     var changed = {}
     for k: dps.keys()
       var ks = str(k)
@@ -345,6 +344,7 @@ end
 #################################################################################
 # TuyaDevice : connexion TCP vers un appareil Wi-Fi (ou une passerelle) et protocole
 #################################################################################
+#@ solidify:TuyaDevice,weak
 class TuyaDevice : TuyaNode
   static var PORT = 6668
   static var ST_IDLE = 0
@@ -404,6 +404,7 @@ class TuyaDevice : TuyaNode
   end
 
   def on_connected()
+    import crypto
     tasmota.log(f"TUY: {self.name} ({self.ip}) connecte, protocole {self.ver}", 2)
     self.t_last_rx = tasmota.millis()
     self.t_hb = tasmota.millis()
@@ -499,6 +500,7 @@ class TuyaDevice : TuyaNode
 
   # envoi de DP vers un appareil ou un sous-appareil (node)
   def set_dps(node, dps)
+    import json
     if self.state != self.ST_READY
       tasmota.log(f"TUY: {node.name} non connecte, commande ignoree", 2)
       return false
@@ -559,6 +561,7 @@ class TuyaDevice : TuyaNode
   end
 
   def frame_6699(cmd, plain, k)
+    import crypto
     var b = bytes()
     b.add(0x00006699, -4)
     b.add(0, -2)
@@ -618,6 +621,7 @@ class TuyaDevice : TuyaNode
 
   # decode une trame complete -> (cmd, payload en clair sans code retour)
   def decode(frame)
+    import crypto
     var k = self.sess_key != nil ? self.sess_key : self.key
     var total = size(frame)
     if frame.get(0, -4) == 0x00006699
@@ -653,6 +657,7 @@ class TuyaDevice : TuyaNode
   end
 
   def handle(frame)
+    import json
     var r = self.decode(frame)
     var cmd = r[0]
     var p = r[1]
@@ -692,6 +697,7 @@ class TuyaDevice : TuyaNode
 
   ###################### negociation de cle (3.4 / 3.5) ######################
   def nego_step2(p)
+    import crypto
     if self.state != self.ST_NEGO || size(p) < 48
       self.close("negociation : reponse inattendue")
       return
@@ -726,6 +732,7 @@ end
 #################################################################################
 # TuyaLocal : driver Tasmota
 #################################################################################
+#@ solidify:TuyaLocal,weak
 class TuyaLocal
   static var CONFIG = "/tuya.json"
   var devices                 # list de TuyaDevice
@@ -743,6 +750,8 @@ class TuyaLocal
   end
 
   def load_config()
+    import string
+    import json
     for d: self.devices  d.close("rechargement")  end
     self.devices = []
     self.by_ep = {}
@@ -789,6 +798,8 @@ class TuyaLocal
 
   # evenement MtrReceived : {"ep9":{"Ep":9,"Name":"Lumiere","Power":1}}
   def on_matter(v)
+    import string
+    import json
     if type(v) != 'instance'  return  end
     for k: v.keys()
       var a = v[k]
@@ -806,6 +817,7 @@ class TuyaLocal
   end
 
   def find_node(name)
+    import string
     name = string.tolower(name)
     for d: self.devices
       for n: d.nodes()
@@ -817,6 +829,8 @@ class TuyaLocal
 
   # TuyaSend <appareil>,<dp>,<valeur JSON>   ex : TuyaSend Ventilateur,60,true
   def cmd_send(payload)
+    import string
+    import json
     var a = string.split(payload, ",", 2)
     if size(a) < 3  return tasmota.resp_cmnd_str("Syntaxe : TuyaSend <appareil>,<dp>,<valeur>")  end
     var n = self.find_node(self.trim(a[0]))
@@ -841,6 +855,7 @@ class TuyaLocal
   end
 
   def cmd_status()
+    import json
     var r = {}
     for d: self.devices
       for n: d.nodes()
@@ -857,6 +872,7 @@ class TuyaLocal
 
   # mesures (capteurs) dans le releve SENSOR
   def json_append()
+    import json
     var parts = []
     for d: self.devices
       for n: d.nodes()
@@ -880,6 +896,7 @@ class TuyaLocal
   # entier Tuya / diviseur (puissance de 10) en decimal exact : 2268703 / 100 -> "22687.03"
   # (pas de flottant : Berry calcule en simple precision sur l'ESP32)
   def scaled(v, div)
+    import string
     if div == nil || div <= 1  return str(v)  end
     var dec = 0
     var d = div
@@ -909,5 +926,3 @@ class TuyaLocal
     if size(msg) > 0  tasmota.web_send_decimal(msg)  end
   end
 end
-
-tuya_local = TuyaLocal()

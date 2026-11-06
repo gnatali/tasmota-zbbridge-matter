@@ -282,8 +282,30 @@ def main():
     ok += 1
     print("OK 12 endpoint Matter absent signale")
 
+    # 13. endpoint Matter cree apres le demarrage du driver : renvoi de l'etat complet toutes
+    # les 30 s tant qu'il est refuse, signale une seule fois, puis plus rien une fois accepte
+    def adv(ms):
+        out = []
+        for _ in range(ms // 10000):
+            out += h.pump(h.send("ADV 10000"))
+        return out
+    out = adv(30000)
+    assert find(mtr_updates(out), "Inconnu") == {"Name": "Inconnu", "Power": 0}, mtr_updates(out)
+    assert not any("'Inconnu'" in l for l in out if l.startswith("LOG")), "refus signale deux fois"
+    h.send("EPADD Inconnu")                       # l'endpoint est cree dans Configuration -> Matter
+    out = adv(30000)
+    assert find(mtr_updates(out), "Inconnu") == {"Name": "Inconnu", "Power": 0}, mtr_updates(out)
+    assert any("endpoint Matter 'Inconnu' disponible" in l for l in out), [l for l in out if "LOG" in l]
+    out = adv(30000)
+    assert find(mtr_updates(out), "Inconnu") == {}, "endpoint accepte : plus de renvoi"
+    push = DEVS["10.0.0.15"].push({"protocol": 4, "t": 5, "data": {"dps": {"1": True}}})
+    out = h.pump(h.send("RX 10.0.0.15 " + push.hex()))
+    assert find(mtr_updates(out), "Inconnu") == {"Name": "Inconnu", "Power": 1}, mtr_updates(out)
+    ok += 1
+    print("OK 13 endpoint Matter cree apres coup : etat envoye sans redemarrage")
+
     h.close()
-    print("%d/12 scenarios OK" % ok)
+    print("%d/13 scenarios OK" % ok)
 
 
 if __name__ == "__main__":

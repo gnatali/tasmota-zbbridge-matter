@@ -98,6 +98,11 @@ Dans **Configuration → Matter**, ajouter un endpoint par entrée `matter` de `
 type ci-dessous et avec **exactement** le nom donné dans `ep` (32 octets au plus ; une lettre
 accentuée compte pour 2). Puis `Restart 1` pour que le contrôleur Matter les découvre.
 
+Un endpoint créé pendant que le driver tourne reçoit l'état de son appareil **dans les 30
+secondes**, sans redémarrage du driver : tant qu'un endpoint refuse les mises à jour, le driver
+lui renvoie l'état complet toutes les 30 s. Sans cet état, Google Home affichait l'endpoint
+« non connecté ».
+
 | `type` dans `tuya.json` | Endpoint Matter à créer | Attributs échangés |
 |---|---|---|
 | `relay` | v.Relay | marche/arrêt |
@@ -110,8 +115,9 @@ accentuée compte pour 2). Puis `Restart 1` pour que le contrôleur Matter les d
 | `temp` | v.Temperature | température |
 | `humidity` | v.Humidity | humidité |
 
-Si un nom ne correspond à aucun endpoint, la console l'indique :
-`TUY: endpoint Matter 'xxx' : Invalid Device`.
+Si un nom ne correspond à aucun endpoint, la console l'indique une fois :
+`TUY: endpoint Matter 'xxx' : Invalid Device (nouvel essai toutes les 30 s)`. Dès que
+l'endpoint existe : `TUY: endpoint Matter 'xxx' disponible, etat envoye`.
 
 ## Fichier de configuration
 
@@ -199,7 +205,8 @@ Il n'apparaît plus dans Smart Life, et le retirer de `tuya.json` s'il y figurai
 ## Tests
 
 `berry/test/run_tests.sh <dépôt Tasmota>` compile l'interpréteur Berry de Tasmota avec le
-chiffrement BearSSL de Tasmota, et joue 12 scénarios contre de faux appareils Tuya construits
+chiffrement BearSSL de Tasmota, et joue 13 scénarios contre de faux appareils Tuya construits
 sur [TinyTuya](https://github.com/jasonacox/tinytuya) (3.3, 3.4, 3.5, passerelle Zigbee) :
 négociation de clé, commandes Matter, retours d'état, mesures, coupure et reconnexion, trames
-corrompues ou fragmentées. Le workflow **Build firmware** les lance avant chaque compilation.
+corrompues ou fragmentées, endpoint Matter créé à chaud. Le workflow **Build firmware** les lance
+avant chaque compilation, sur le driver source puis sur le driver solidifié.

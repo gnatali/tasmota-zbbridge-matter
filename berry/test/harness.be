@@ -4,13 +4,14 @@
 #   ADV <ms>          avance le temps (every_50ms appele toutes les 50 ms)
 #   MTR <json>        evenement MtrReceived            CMD <nom> <payload>  commande Tasmota
 #   SENSOR            json_append() + web_sensor()     END
+#   EPADD <nom>       cree l'endpoint Matter <nom> (absent au depart : "Inconnu")
 # Sorties : CONNECT, TX, CLOSE, CMD (MtrUpdate), PUB, RESP, APPEND, WEB, LOG ; READY apres chaque ligne
 import json
 import string
 
 class MockTasmota
-  var now, rules, cmds, drivers
-  def init()  self.now = 100000  self.rules = {}  self.cmds = {}  self.drivers = []  end
+  var now, rules, cmds, drivers, missing
+  def init()  self.now = 100000  self.rules = {}  self.cmds = {}  self.drivers = []  self.missing = {"Inconnu": true}  end
   def millis()  return self.now  end
   def rtc()  return {"utc": 1793984000 + self.now / 1000}  end
   def add_driver(d)  self.drivers.push(d)  end
@@ -21,7 +22,7 @@ class MockTasmota
   def cmd(c, mute)
     print("CMD " + c)
     var p = json.load(c[10 ..])
-    if p["Name"] == "Inconnu"  return {"MtrUpdate": "Invalid Device"}  end
+    if self.missing.contains(p["Name"])  return {"MtrUpdate": "Invalid Device"}  end
     return {"MtrUpdate": p}
   end
   def resp_cmnd(s)  print("RESP " + s)  end
@@ -100,6 +101,8 @@ while true
     import gc
     gc.collect()
     print("MEM " + str(gc.allocated()))
+  elif op == "EPADD"
+    tasmota.missing.remove(arg)
   elif op == "SENSOR"
     drv.json_append()
     drv.web_sensor()

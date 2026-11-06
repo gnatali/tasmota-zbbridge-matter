@@ -103,6 +103,7 @@ class TuyaBinding
   var ep              # nom de l'endpoint Matter
   var type            # relay, relay_power, light0..3, fan, temp, humidity
   var c               # configuration (map)
+  var pending         # true : le dernier MtrUpdate a ete refuse (endpoint absent), a renvoyer
 
   def init(node, conf)
     self.node = node
@@ -208,6 +209,31 @@ class TuyaBinding
       return [int("0x" + s[0..3]), int("0x" + s[4..7]), int("0x" + s[8..11])]
     end
     return [0, 1000, 1000]
+  end
+
+  # Tuya -> Matter : envoie a l'endpoint les attributs touches par `changed` (map de DP).
+  # Si l'endpoint refuse (absent, cree apres le driver...), la liaison passe en attente et
+  # TuyaLocal lui renvoie l'etat complet toutes les SYNC_RETRY ms. Renvoie false si refuse.
+  def push(changed)
+    import json
+    var r = self.to_matter(changed)
+    if r == nil  return true  end
+    r["Name"] = self.ep
+    var res = tasmota.cmd("MtrUpdate " + json.dump(r), true)
+    var v = (type(res) == 'instance') ? res.find("MtrUpdate") : nil
+    if type(v) == 'instance'
+      if self.pending
+        tasmota.log(f"TUY: endpoint Matter '{self.ep}' disponible, etat envoye", 2)
+        self.pending = false
+      end
+      return true
+    end
+    if !self.pending                  # {"MtrUpdate":"Invalid Device"} ou rien : signale une fois
+      var why = (v != nil) ? v : res
+      tasmota.log(f"TUY: endpoint Matter '{self.ep}' : {why} (nouvel essai toutes les 30 s)", 2)
+      self.pending = true
+    end
+    return false
   end
 
   # Tuya -> Matter : etat courant -> attributs MtrUpdate (nil si rien ne concerne cet endpoint)
@@ -321,15 +347,10 @@ class TuyaNode
     tasmota.log(f"TUY: {self.name} {json.dump(changed)}", 3)
     tasmota.publish_result(json.dump({"Tuya": {"Name": self.name, "Dps": changed}}), "RESULT")
     for b: self.bindings
-      var r = b.to_matter(changed)
-      if r != nil
-        r["Name"] = b.ep
-        var res = tasmota.cmd("MtrUpdate " + json.dump(r), true)
-        var v = (type(res) == 'instance') ? res.find("MtrUpdate") : nil
-        if type(v) != 'instance'          # {"MtrUpdate":"Invalid Device"} ou rien
-          var why = (v != nil) ? v : res
-          tasmota.log(f"TUY: endpoint Matter '{b.ep}' : {why}", 2)
-        end
+      if b.pending
+        b.push(self.dps)                # endpoint en attente : etat complet
+      else
+        b.push(changed)
       end
     end
   end
@@ -735,12 +756,15 @@ end
 #@ solidify:TuyaLocal,weak
 class TuyaLocal
   static var CONFIG = "/tuya.json"
+  static var SYNC_RETRY = 30000   # ms entre deux renvois aux endpoints Matter qui ont refuse
   var devices                 # list de TuyaDevice
   var by_ep                   # {nom d'endpoint Matter en minuscules: TuyaBinding}
+  var t_sync                  # millis du dernier renvoi
 
   def init()
     self.devices = []
     self.by_ep = {}
+    self.t_sync = tasmota.millis()
     self.load_config()
     tasmota.add_driver(self)
     tasmota.add_rule("MtrReceived", /v -> self.on_matter(v), self)
@@ -792,6 +816,27 @@ class TuyaLocal
       except .. as e, m
         tasmota.log(f"TUY: {d.name} erreur : {e} {m}", 2)
         d.close("erreur interne")
+      end
+    end
+    var now = tasmota.millis()
+    if now - self.t_sync >= self.SYNC_RETRY
+      self.t_sync = now
+      try
+        self.sync_pending()
+      except .. as e, m
+        tasmota.log(f"TUY: renvoi vers Matter : {e} {m}", 2)
+      end
+    end
+  end
+
+  # renvoie l'etat complet aux endpoints Matter qui ont refuse un MtrUpdate : un endpoint cree
+  # alors que le driver tourne recoit ainsi l'etat de l'appareil sans redemarrage
+  def sync_pending()
+    for d: self.devices
+      for n: d.nodes()
+        for b: n.bindings
+          if b.pending  b.push(n.dps)  end
+        end
       end
     end
   end

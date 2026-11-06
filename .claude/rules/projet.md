@@ -16,8 +16,8 @@ les mesures faites sur la passerelle et les prochaines étapes sont dans
 ## Matériel (contraintes qui pèsent sur chaque choix)
 
 - ESP32-D0WD, flash de 4 Mo, **pas de PSRAM**. Partitions : application 2880 Ko, système de
-  fichiers 320 Ko (`esp32_partition_app2880k_fs320k.csv`). Firmware actuel : ~1992 Ko, il
-  reste ~888 Ko en flash.
+  fichiers 320 Ko (`esp32_partition_app2880k_fs320k.csv`). Firmware actuel : ~2015 Ko avec le
+  driver Tuya solidifié, il reste ~865 Ko en flash.
 - **La RAM est la ressource critique** : ~67 Ko libres avec Zigbee + Matter juste après le
   démarrage, ~74 Ko au bout de 30 s, ~34 Ko avec en plus le driver Tuya et ses 12 appareils
   (le driver consomme donc ~40 Ko). Toute nouveauté se mesure avec `Heap` dans

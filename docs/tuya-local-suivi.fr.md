@@ -15,7 +15,7 @@ Tuya Wi-Fi et les sous-appareils Zigbee de la passerelle Tuya, et les présenter
 | Crypto Berry : `USE_BERRY_CRYPTO_AES_CBC` + correctif `berry-aes-gcm-128-aad.patch` | ✅ compilé, en service sur la passerelle |
 | Driver `berry/tuya_local.be` : protocoles 3.3 / 3.4 / 3.5, passerelle Tuya (`cid`) | ✅ **testé sur les vrais appareils** : 5 appareils Wi-Fi et 7 sous-appareils connectés, valeurs correctes |
 | Banc de test (12 scénarios) dans le workflow | ✅ passe en CI |
-| **Solidification du driver** (`custom_berry_solidify`, correctif `berry-solidify-all-classes.patch`) | ✅ banc de test : 12/12 sur le driver source **et** sur le driver solidifié ; ⏳ build du firmware et mesure de `Heap` sur la passerelle |
+| **Solidification du driver** (`custom_berry_solidify`, correctif `berry-solidify-all-classes.patch`) | ✅ banc de test : 12/12 sur le driver source **et** sur le driver solidifié ; ✅ build du firmware (2015 Ko) ; ⏳ mesure de `Heap` sur la passerelle |
 | Documentation utilisateur `docs/tuya-local.fr.md` | ✅ |
 | Chargement différé dans `autoexec.be` (plantage au démarrage) | ✅ corrigé et documenté |
 | **Mémoire** : il restait 34 Ko avec le driver chargé depuis le système de fichiers | ⚠️ trop juste pour les 16 endpoints Matter → driver solidifié, gain à mesurer |
@@ -55,6 +55,9 @@ Tuya Wi-Fi et les sous-appareils Zigbee de la passerelle Tuya, et les présenter
      si le firmware ne contient pas le driver ;
    - le banc de test solidifie le driver comme le build (`berry_port`, `coc`) et rejoue les
      12 scénarios sur les classes natives. Le C généré fait ~206 Ko de source.
+   - **Build** (exécution 11, commit `df4ed7d`) : firmware de 2 063 295 octets (2015 Ko,
+     +22,8 Ko), soit exactement la hausse de `.rodata` (676 464 → 699 280 octets). La RAM
+     statique ne bouge pas (DRAM 65 948 → 65 980 octets, +32). Il reste ~865 Ko en flash.
 
 ## Mesures sur la passerelle
 
@@ -92,8 +95,7 @@ endpoints Matter `z_light2` ou `z_light1`.
 ## Prochaines étapes (par priorité)
 
 1. **Valider la solidification sur la passerelle** (le code est fait, voir l'historique) :
-   - lancer le build sur `tuya-local-crypto` et vérifier qu'il passe (taille du firmware,
-     à comparer aux 1992 Ko d'avant) ;
+   - ~~lancer le build~~ : fait, il passe (firmware de 2015 Ko, voir l'historique) ;
    - flasher, **remplacer `autoexec.be`** par la version de `docs/tuya-local.fr.md` (l'ancienne
      ne fait que `load("tuya_local.be")` et ne démarrerait plus le driver), supprimer
      `/tuya_local.be` ;

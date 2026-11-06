@@ -122,6 +122,16 @@ endpoints Matter `z_light2` ou `z_light1`.
 
 ## À vérifier côté passerelle
 
+- **Premier endpoint Matter (`Entrée-Porche`, v.Light 2 CT)** : créé, il est resté « non
+  connecté » dans Google Home jusqu'à un `MtrUpdate {"Name":"Entrée-Porche","Power":1}` fait à
+  la main ; depuis, tout fonctionne, y compris après `Restart 1`. Cause probable : le driver
+  n'envoie à Matter que les **changements** d'état. S'il a reçu l'état de l'ampoule avant la
+  création de l'endpoint, son `MtrUpdate` a échoué (`Invalid Device`) et n'a jamais été
+  renvoyé : l'endpoint gardait ses valeurs par défaut. Correctif envisagé : renvoyer l'état
+  complet d'une liaison tant que son `MtrUpdate` échoue (toutes les 30 s), pour qu'un endpoint
+  créé à chaud reçoive son état sans redémarrage. En attendant : `Restart 1` après chaque
+  création d'endpoint, ou un `MtrUpdate` à la main.
+
 - `Rule1` : la protection anti-boucle a désactivé les règles. Vérifier que `Rule1 1` a été
   refait (bouton Zigbee « Perron » dans Google Home).
 - La cause exacte du plantage n'a pas été relevée (`Status 12` non collecté). Le chargement

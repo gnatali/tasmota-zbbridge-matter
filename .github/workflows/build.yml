@@ -33,7 +33,13 @@ jobs:
           path: ~/.platformio
           key: pio-${{ env.TASMOTA_REF }}
 
-      - run: pip install platformio
+      - run: pip install platformio tinytuya
+
+      # Tests du driver Berry tuya_local.be : interpreteur Berry et BearSSL de Tasmota,
+      # faux appareils Tuya construits sur TinyTuya (le test ecrit /tuya.json)
+      - run: |
+          sudo touch /tuya.json && sudo chmod 666 /tuya.json
+          bash berry/test/run_tests.sh tasmota
 
       - run: |
           cp platformio_override.ini tasmota/

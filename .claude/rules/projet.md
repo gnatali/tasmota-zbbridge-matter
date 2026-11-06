@@ -19,8 +19,9 @@ les mesures faites sur la passerelle et les prochaines étapes sont dans
   fichiers 320 Ko (`esp32_partition_app2880k_fs320k.csv`). Firmware actuel : ~2015 Ko avec le
   driver Tuya solidifié, il reste ~865 Ko en flash.
 - **La RAM est la ressource critique** : ~67 Ko libres avec Zigbee + Matter juste après le
-  démarrage, ~74 Ko au bout de 30 s, ~34 Ko avec en plus le driver Tuya et ses 12 appareils
-  (le driver consomme donc ~40 Ko). Toute nouveauté se mesure avec `Heap` dans
+  démarrage, ~71-74 Ko au bout de 30 s, **~61 Ko** avec en plus le driver Tuya solidifié et
+  ses 12 appareils (le driver consomme ~10 Ko ; ~40 Ko quand il était chargé depuis le système
+  de fichiers). Toute nouveauté se mesure avec `Heap` dans
   `Status 4` (en Ko).
 
 ## Dépôt

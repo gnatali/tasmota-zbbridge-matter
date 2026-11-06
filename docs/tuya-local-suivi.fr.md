@@ -50,7 +50,7 @@ Tuya Wi-Fi et les sous-appareils Zigbee de la passerelle Tuya, et les présenter
 | 30 s après le démarrage, juste avant de charger le driver | 74 Ko |
 | Driver chargé, 12 appareils connectés, aucun endpoint Matter Tuya | **34 Ko** |
 
-Le driver consomme donc environ 33 Ko (code compilé en RAM, état des appareils, tampons). Sur
+Le driver consomme donc environ 40 Ko (74 − 34 ; code compilé en RAM, état des appareils, tampons). Sur
 l'hôte 64 bits, le seul code compilé du driver occupe 36 Ko ; sur l'ESP32, compter environ
 20 à 25 Ko. Il n'y a pas eu de mesure après `Br tasmota.gc()`.
 

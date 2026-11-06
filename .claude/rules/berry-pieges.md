@@ -5,9 +5,12 @@ paths:
 ---
 # Pièges connus (Berry sous Tasmota)
 
-- Tasmota compile en **mode strict** (`comp_set_strict`) : pas de variable globale implicite
-  (`global.x` ou une affectation de premier niveau dans le fichier chargé). Tester un fichier
-  avec `import strict` en tête dans l'interpréteur de test.
+- Tasmota compile en **mode strict** (`comp_set_strict`) : dans une fonction ou un bloc, une
+  affectation à un nom non déclaré est une erreur (`strict: no global 'x', did you mean 'var x'?`).
+  Déclarer avec `var`, et créer une globale depuis une fonction avec `import global` puis
+  `global.x = ...`. Au premier niveau du fichier chargé, `x = ...` reste permis et crée une
+  globale (c'est ce que fait la dernière ligne du driver). Tester un fichier avec
+  `import strict` en tête dans l'interpréteur de test.
 - Entiers sur **32 bits** et flottants en **simple précision** : un compteur d'énergie
   divisé en flottant perd des décimales. Le driver formate les mesures en décimal exact à
   partir de l'entier (`TuyaLocal.scaled`).

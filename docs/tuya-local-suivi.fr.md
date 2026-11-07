@@ -95,6 +95,12 @@ réduire l'état Berry (étape 3) et mesurer le coût des endpoints Matter.
 
 ## Inventaire (sans clés ni identifiants : voir `tuya.json` sur la passerelle)
 
+**Périmètre retenu (7 novembre)** : seuls le Ventilateur, le Récepteur radio et Entrée-Porche
+sont actifs dans `tuya.json`, plus Pergola 1 et 2 désactivées (`"enabled": false`, IP
+inconnue, version 3.3 supposée). La pince et la passerelle Tuya (avec ses sous-appareils) ne
+sont **pas** dans `tuya.json` : hors périmètre. Soit **7 endpoints Matter** (9 avec les
+Pergola), au lieu de 16. Avec 3 appareils connectés, le driver consomme ~10 Ko (71 → 61 Ko).
+
 **Appareils Wi-Fi**
 
 | Appareil | Protocole | Rôle dans `tuya.json` |
@@ -102,11 +108,11 @@ réduire l'état Berry (étape 3) et mesurer le coût des endpoints Matter.
 | Ventilateur | 3.5 | `fan` (DP 60/62, vitesses 1-6) + `light0` (DP 20) |
 | Récepteur radio (4 canaux 433 MHz) | 3.5 | 4 × `relay` (DP 1 à 4) |
 | Entrée-Porche (ampoule LSC CCT) | 3.3 | `light2` (DP 20/21/22/23) |
-| A:Eau B:Chfg C:Cuisine (pince 3 circuits) | 3.5 | `sensors` : tension, courant, puissance et énergie par circuit et au total |
-| Gateway (passerelle Zigbee Tuya) | 3.3 | porte les sous-appareils |
+| A:Eau B:Chfg C:Cuisine (pince 3 circuits) | 3.5 | hors périmètre (pas dans `tuya.json`) |
+| Gateway (passerelle Zigbee Tuya) | 3.3 | hors périmètre (pas dans `tuya.json`), avec ses sous-appareils |
 | Pergola 1, Pergola 2 (projecteurs LSC RGB) | ? | `light3` (DP 20/21/22/24), `"enabled": false` |
 
-**Sous-appareils Zigbee de la passerelle Tuya** : luminaires terrasse, Prise Lisseur et Relais
+**Sous-appareils Zigbee de la passerelle Tuya** (hors périmètre) : luminaires terrasse, Prise Lisseur et Relais
 zigbee Cuisine (`relay_power`, DP 1/18/19/20) ; Interrupteur Terrasse et Chauffage
 (`relay`) ; Temperature SdB (`temp` DP 1 et `humidity` DP 2, diviseur 10) ; Capteur de
 température et d'humidité (`temp` DP 103 et `humidity` DP 101, diviseur 100).
@@ -119,11 +125,15 @@ endpoints Matter `z_light2` ou `z_light1`.
 1. ~~**Solidifier le driver**~~ : fait et mesuré, 48 Ko libres avec les 12 appareils au lieu
    de 34 (voir les mesures). Le seuil de 60 Ko d'`autoexec.be` reste adapté (71 Ko avant le
    démarrage du driver, ~23 Ko consommés ensuite).
-2. **Matter** : créer les endpoints un par un (commencer par `Prise Lisseur` en v.Relay+Power,
-   `Ventilateur` en v.Fan, `Entrée-Porche` en v.Light 2 CT), `Restart 1`, puis tester les
-   deux sens avec Google Home en surveillant `Heap`.
-3. **Réduire la RAM du driver** (~23 Ko d'état pour 12 appareils) si les endpoints Matter
-   ne laissent pas assez de marge :
+2. **Matter** : créer les endpoints un par un, avec **exactement** le nom de `ep` (accents
+   compris), et tester les deux sens avec Google Home en relevant `Heap` après chacun :
+   - ✅ `Entrée-Porche` : v.Light 2 CT ;
+   - `Ventilateur` : v.Fan ; `Lumière ventilateur` : v.Light 0 OnOff ;
+   - `Récepteur radio 1` à `Récepteur radio 4` : v.Relay.
+   Avec le firmware de l'exécution 12, un endpoint créé à chaud reçoit son état en 30 s
+   (`TUY: endpoint Matter '…' disponible`), sans `Restart 1`.
+3. **Réduire la RAM du driver** si les endpoints Matter ne laissent pas assez de marge (peu
+   probable avec 3 appareils, ~10 Ko) :
    - ne garder dans `dps` que les DP utilisés par une liaison ou un capteur (la pince en
      envoie 22, les prises 11) ;
    - limiter `publish_result` (un message MQTT par changement, la pince en envoie souvent).

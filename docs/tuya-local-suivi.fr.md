@@ -19,7 +19,7 @@ Tuya Wi-Fi et les sous-appareils Zigbee de la passerelle Tuya, et les présenter
 | Documentation utilisateur `docs/tuya-local.fr.md` | ✅ |
 | Chargement différé dans `autoexec.be` (plantage au démarrage) | ✅ corrigé et documenté |
 | **Mémoire** avec les 12 appareils connectés : 34 Ko libres avec le driver chargé depuis le système de fichiers, **48 Ko** avec le driver solidifié | ✅ ~14 Ko de marge en plus ; coût des endpoints Matter à mesurer |
-| Endpoints Matter et essais dans Google Home | 🔄 `Entrée-Porche` fonctionne ; renvoi de l'état aux endpoints créés à chaud : ✅ banc de test, ✅ build (exécution 12), ✅ flashé ; ⏳ essai d'un endpoint créé à chaud |
+| Endpoints Matter et essais dans Google Home | ✅ 7 endpoints créés (`Entrée-Porche`, `Ventilateur`, `Lumière ventilateur`, `Récepteur radio`), dans Google Home après `Restart 1` ; 61 Ko libres |
 | Pergola 1 et 2 (projecteurs RGB) | ⏳ absentes du scan : IP et version inconnues, désactivées dans `tuya.json` |
 | Migration des contrôleurs LED Zigbee Bureau et Salon sur la ZB-GW03 | ⏳ décidée, pas faite |
 
@@ -69,6 +69,10 @@ Tuya Wi-Fi et les sous-appareils Zigbee de la passerelle Tuya, et les présenter
 | **Driver solidifié** (firmware 2015 Ko, 6 novembre) : juste avant de démarrer le driver | 71 Ko |
 | **Driver solidifié** : driver démarré, 3 appareils connectés | 61 Ko |
 | **Driver solidifié** : driver démarré, **12 appareils connectés** (endpoint Matter `Entrée-Porche` créé) | **48 Ko** |
+| Périmètre réduit (3 appareils), endpoint `Entrée-Porche` seul, 7 novembre | 62 Ko |
+| + `Ventilateur` (v.Fan), après `Restart 1` | 58 Ko |
+| + `Lumière ventilateur` (v.Light 0 OnOff), après `Restart 1` | 61 Ko |
+| + `Récepteur radio` (v.Relay), après `Restart 1` : **7 endpoints** | **61 Ko** |
 
 Avec les 12 appareils connectés, le driver consommait environ **40 Ko** chargé depuis le
 système de fichiers (74 − 34 : code compilé en RAM, état des appareils, tampons), et environ
@@ -79,6 +83,10 @@ soit ~2 Ko par appareil en moyenne : il croît avec le nombre d'appareils connec
 reçus (pince : 22 DP, passerelle : 7 sous-appareils). Avec 3 appareils, 10 Ko (71 → 61).
 Les 48 Ko incluent l'endpoint Matter `Entrée-Porche`. Il n'y a pas eu de mesure après
 `Br tasmota.gc()`.
+
+**Coût des endpoints Matter** : de 62 Ko (1 endpoint) à 61 Ko (7 endpoints), soit **~1 Ko pour
+6 endpoints**, dans le bruit de mesure (le 58 Ko intermédiaire en fait partie : le heap varie
+de quelques Ko d'un relevé à l'autre). La marge de ~60 Ko est donc confortable.
 
 **Répartition sur le banc de test** (driver solidifié, interpréteur 64 bits : sur l'ESP32,
 les objets Berry font à peu près la moitié) : driver sans appareil ~3,7 Ko ; premier appareil
@@ -128,10 +136,11 @@ endpoints Matter `z_light2` ou `z_light1`.
 2. **Matter** : créer les endpoints un par un, avec **exactement** le nom de `ep` (accents
    compris), et tester les deux sens avec Google Home en relevant `Heap` après chacun :
    - ✅ `Entrée-Porche` : v.Light 2 CT ;
-   - `Ventilateur` : v.Fan ; `Lumière ventilateur` : v.Light 0 OnOff ;
-   - `Récepteur radio 1` à `Récepteur radio 4` : v.Relay.
-   Avec le firmware de l'exécution 12, un endpoint créé à chaud reçoit son état en 30 s
-   (`TUY: endpoint Matter '…' disponible`), sans `Restart 1`.
+   - ✅ `Ventilateur` : v.Fan ; ✅ `Lumière ventilateur` : v.Light 0 OnOff ;
+   - ✅ `Récepteur radio 1` à `Récepteur radio 4` : v.Relay.
+   **`Restart 1` obligatoire** après la création : sans lui, Google Home affiche les nouveaux
+   appareils hors ligne. Reste à tester les deux sens (Google Home → appareil, et appareil
+   → Google Home : bouton, Smart Life, télécommande) pour chaque endpoint.
 3. **Réduire la RAM du driver** si les endpoints Matter ne laissent pas assez de marge (peu
    probable avec 3 appareils, ~10 Ko) :
    - ne garder dans `dps` que les DP utilisés par une liaison ou un capteur (la pince en
@@ -147,7 +156,7 @@ endpoints Matter `z_light2` ou `z_light1`.
 
 - **Premier endpoint Matter (`Entrée-Porche`, v.Light 2 CT)** : créé, il est resté « non
   connecté » dans Google Home jusqu'à un `MtrUpdate {"Name":"Entrée-Porche","Power":1}` fait à
-  la main ; depuis, tout fonctionne, y compris après `Restart 1`. Cause probable : le driver
+  la main ; depuis, tout fonctionne, y compris après `Restart 1`. Première hypothèse : le driver
   n'envoie à Matter que les **changements** d'état. S'il a reçu l'état de l'ampoule avant la
   création de l'endpoint, son `MtrUpdate` a échoué (`Invalid Device`) et n'a jamais été
   renvoyé : l'endpoint gardait ses valeurs par défaut. Correctif envisagé : renvoyer l'état
@@ -157,8 +166,15 @@ endpoints Matter `z_light2` ou `z_light1`.
   renvoie l'état complet toutes les 30 s, et toute mise à jour de l'appareil le renvoie aussi.
   Scénario 13 du banc de test (il échoue sur l'ancien driver). Build : exécution 12, firmware
   de 2 064 191 octets (+0,9 Ko). **Flashé le 7 novembre** : le premier flash a échoué (passerelle
-  restée en safeboot), le second a fonctionné ; reste à vérifier sur un nouvel endpoint ;
-  d'ici là : `Restart 1` après chaque création d'endpoint, ou un `MtrUpdate` à la main.
+  restée en safeboot), le second a fonctionné.
+  **Hypothèse infirmée le 7 novembre** : avec ce firmware, les endpoints suivants apparaissent
+  dans Google Home mais restent **hors ligne jusqu'au `Restart 1` de Tasmota**, alors que le
+  driver leur envoie bien leur état. La vraie cause est côté Matter : Google Home ne s'abonne
+  aux nouveaux endpoints qu'à la reconnexion. Pour `Entrée-Porche`, c'est donc sans doute un
+  redémarrage, et non le `MtrUpdate` manuel, qui a tout débloqué. Conclusion : **`Restart 1`
+  après la création des endpoints, toujours** (une seule fois pour plusieurs). Le renvoi
+  d'état reste en place : sans effet visible, mais il évite qu'un endpoint garde des valeurs
+  par défaut si Matter le crée après le driver.
 
 - `Rule1` : la protection anti-boucle a désactivé les règles. Vérifier que `Rule1 1` a été
   refait (bouton Zigbee « Perron » dans Google Home).

@@ -96,12 +96,13 @@ et mettre à jour `tuya.json`.
 
 Dans **Configuration → Matter**, ajouter un endpoint par entrée `matter` de `tuya.json`, du
 type ci-dessous et avec **exactement** le nom donné dans `ep` (32 octets au plus ; une lettre
-accentuée compte pour 2). Puis `Restart 1` pour que le contrôleur Matter les découvre.
+accentuée compte pour 2). Puis **`Restart 1`, indispensable** : Google Home affiche tout de
+suite le nouvel appareil, mais **hors ligne** tant que Tasmota n'a pas redémarré (le contrôleur
+ne s'abonne aux nouveaux endpoints qu'à la reconnexion). Le plus simple : créer tous les
+endpoints, puis un seul `Restart 1`.
 
-Un endpoint créé pendant que le driver tourne reçoit l'état de son appareil **dans les 30
-secondes**, sans redémarrage du driver : tant qu'un endpoint refuse les mises à jour, le driver
-lui renvoie l'état complet toutes les 30 s. Sans cet état, Google Home affichait l'endpoint
-« non connecté ».
+Côté driver, un endpoint qui n'existe pas encore est signalé une fois, et le driver lui renvoie
+l'état de l'appareil toutes les 30 s jusqu'à ce qu'il l'accepte.
 
 | `type` dans `tuya.json` | Endpoint Matter à créer | Attributs échangés |
 |---|---|---|

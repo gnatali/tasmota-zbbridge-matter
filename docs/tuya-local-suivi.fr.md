@@ -19,7 +19,7 @@ Tuya Wi-Fi et les sous-appareils Zigbee de la passerelle Tuya, et les présenter
 | Documentation utilisateur `docs/tuya-local.fr.md` | ✅ |
 | Chargement différé dans `autoexec.be` (plantage au démarrage) | ✅ corrigé et documenté |
 | **Mémoire** avec les 12 appareils connectés : 34 Ko libres avec le driver chargé depuis le système de fichiers, **48 Ko** avec le driver solidifié | ✅ ~14 Ko de marge en plus ; coût des endpoints Matter à mesurer |
-| Endpoints Matter et essais dans Google Home | 🔄 `Entrée-Porche` fonctionne ; renvoi de l'état aux endpoints créés à chaud : ✅ banc de test, ✅ build (exécution 12), ⏳ à flasher |
+| Endpoints Matter et essais dans Google Home | 🔄 `Entrée-Porche` fonctionne ; renvoi de l'état aux endpoints créés à chaud : ✅ banc de test, ✅ build (exécution 12), ✅ flashé ; ⏳ essai d'un endpoint créé à chaud |
 | Pergola 1 et 2 (projecteurs RGB) | ⏳ absentes du scan : IP et version inconnues, désactivées dans `tuya.json` |
 | Migration des contrôleurs LED Zigbee Bureau et Salon sur la ZB-GW03 | ⏳ décidée, pas faite |
 
@@ -146,11 +146,16 @@ endpoints Matter `z_light2` ou `z_light1`.
   liaison en attente au premier refus (signalé une seule fois), `TuyaLocal.sync_pending()` lui
   renvoie l'état complet toutes les 30 s, et toute mise à jour de l'appareil le renvoie aussi.
   Scénario 13 du banc de test (il échoue sur l'ancien driver). Build : exécution 12, firmware
-  de 2 064 191 octets (+0,9 Ko). **À flasher** ;
+  de 2 064 191 octets (+0,9 Ko). **Flashé le 7 novembre** : le premier flash a échoué (passerelle
+  restée en safeboot), le second a fonctionné ; reste à vérifier sur un nouvel endpoint ;
   d'ici là : `Restart 1` après chaque création d'endpoint, ou un `MtrUpdate` à la main.
 
 - `Rule1` : la protection anti-boucle a désactivé les règles. Vérifier que `Rule1 1` a été
   refait (bouton Zigbee « Perron » dans Google Home).
+- **Flash resté en safeboot** (7 novembre, exécution 12) : refaire le flash depuis la page
+  safeboot a suffi, avec le `.bin` décompressé de l'artefact. Tasmota ne passe de lui-même en
+  safeboot qu'après 10 redémarrages de suite dans les 10 premières secondes : le driver, démarré
+  à 30 s, ne peut pas en être la cause.
 - La cause exacte du plantage n'a pas été relevée (`Status 12` non collecté). Le chargement
   différé suffit, mais si un plantage revient, `Status 12` est la première chose à demander.
 
